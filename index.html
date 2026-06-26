@@ -354,15 +354,28 @@ body{font-family:var(--font);background:var(--bg3);color:var(--text);min-height:
       </div>
       <div id="shareCopied" style="font-size:12px;color:var(--success-text);margin-top:6px;display:none">✓ Copied!</div>
     </div>
+
     <div class="card">
-      <div class="slabel" style="margin-bottom:8px">View a friend's collection</div>
-      <p style="font-size:13px;color:var(--text2);margin-bottom:10px">Paste a friend's share link or their User ID to browse their decks.</p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <input class="finput" id="friendInput" placeholder="Paste friend's share link or User ID" style="flex:1;min-width:200px">
-        <button class="io-btn primary" onclick="viewFriend()"><i class="ti ti-eye"></i> View their decks</button>
-      </div>
-      <div id="friendErr" class="err" style="display:none"></div>
+      <div class="slabel" style="margin-bottom:8px">Saved friends</div>
+      <div id="savedFriendsList"><div class="empty-state" style="padding:.5rem 0">No saved friends yet — add one below.</div></div>
     </div>
+
+    <div class="card">
+      <div class="slabel" style="margin-bottom:8px">Add a friend</div>
+      <div class="fg fg2" style="margin-bottom:8px">
+        <div>
+          <div class="slabel">Nickname</div>
+          <input class="finput" id="friendNickname" placeholder="e.g. Jake, Dad, Nate...">
+        </div>
+        <div>
+          <div class="slabel">Share link or User ID</div>
+          <input class="finput" id="friendInput" placeholder="Paste their share link or User ID">
+        </div>
+      </div>
+      <div id="friendErr" class="err" style="display:none;margin-bottom:6px"></div>
+      <button class="io-btn primary" onclick="saveFriend()" style="width:100%"><i class="ti ti-plus"></i> Save friend & view their decks</button>
+    </div>
+
     <div id="friendView" style="display:none">
       <div class="card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -519,6 +532,7 @@ window.saveToFirebase = async () => {
     await setDoc(doc(db, 'users', currentUser.uid), {
       decks: window.decks,
       wishes: window.wishes,
+      savedFriends: window.savedFriends,
       updatedAt: Date.now(),
       displayName: currentUser.displayName || '',
       photoURL: currentUser.photoURL || ''
@@ -576,6 +590,7 @@ onAuthStateChanged(auth, async (user) => {
         const data = snap.data();
         window.decks = data.decks || [];
         window.wishes = data.wishes || [];
+        window.savedFriends = data.savedFriends || [];
       } else {
         window.decks = [];
         window.wishes = [];
@@ -610,6 +625,7 @@ onAuthStateChanged(auth, async (user) => {
 // ── Data ─────────────────────────────────────────────────────────────────────
 window.decks = [];
 window.wishes = [];
+window.savedFriends = [];
 let selDeck=[], selWish=[], selEdit=[], editingId=null;
 
 const ALL_COMBOS=[
@@ -808,19 +824,59 @@ function copyShareLink(){
   });
 }
 
-async function viewFriend(){
+function extractUid(input){
+  let uid=input.trim();
+  try{const url=new URL(uid);uid=url.searchParams.get('view')||uid;}catch(e){}
+  return uid;
+}
+
+async function saveFriend(){
+  const nickname=document.getElementById('friendNickname').value.trim();
   const input=document.getElementById('friendInput').value.trim();
   const err=document.getElementById('friendErr');
+  if(!nickname){err.textContent='Enter a nickname for this friend.';err.style.display='block';return;}
   if(!input){err.textContent='Enter a share link or User ID.';err.style.display='block';return;}
   err.style.display='none';
-  // Extract UID from URL or use directly
-  let uid=input;
-  try{const url=new URL(input);uid=url.searchParams.get('view')||input;}catch(e){}
+  const uid=extractUid(input);
   if(!uid){err.textContent='Could not parse that link.';err.style.display='block';return;}
+  // Check if already saved
+  if(window.savedFriends.find(f=>f.uid===uid)){
+    err.textContent='This friend is already saved.';err.style.display='block';return;
+  }
+  // Add to list and save
+  window.savedFriends.push({id:Date.now(),nickname,uid});
+  save();
+  document.getElementById('friendNickname').value='';
+  document.getElementById('friendInput').value='';
+  render();
+  // Auto-view their decks
+  await loadFriendView(uid, nickname);
+}
+
+function deleteFriend(id){
+  window.savedFriends=window.savedFriends.filter(f=>f.id!==id);
+  save();render();
+}
+
+async function viewFriend(uid, nickname){
+  const err=document.getElementById('friendErr');
+  err.style.display='none';
+  if(!uid){
+    // Called from the add form directly (legacy path)
+    const input=document.getElementById('friendInput').value.trim();
+    if(!input){err.textContent='Enter a share link or User ID.';err.style.display='block';return;}
+    uid=extractUid(input);
+    nickname=nickname||'Friend';
+  }
+  await loadFriendView(uid, nickname);
+}
+
+async function loadFriendView(uid, nickname){
+  const err=document.getElementById('friendErr');
   const data=await window.viewFriendData(uid);
-  if(!data){err.textContent='No collection found for that link. Make sure they have signed in at least once.';err.style.display='block';return;}
+  if(!data){err.textContent=`Couldn't load ${nickname}'s collection. Make sure the link is correct and they've signed in at least once.`;err.style.display='block';return;}
   const friendDecks=data.decks||[];
-  const friendName=data.displayName||'Your friend';
+  const friendName=data.displayName||nickname||'Friend';
   document.getElementById('friendViewTitle').textContent=`${friendName}'s decks (${friendDecks.length})`;
   if(!friendDecks.length){
     document.getElementById('friendDeckList').innerHTML='<div class="empty-state">This person has no decks yet.</div>';
@@ -830,7 +886,6 @@ async function viewFriend(){
       <th>Commander</th><th>Nickname</th><th>Colors</th><th>Type / theme</th><th>Bracket</th><th>EDHREC</th><th>Deck link</th>
     </tr></thead><tbody>${sorted.map(d=>{
       const eurl=d.edhrec||(d.commander?'https://edhrec.com/commanders/'+autoSlug(d.commander):'');
-      const combo=ALL_COMBOS.find(c=>c.key===d.key);
       return`<tr>
         <td style="font-weight:500">${d.commander}${d.commander2?` <span style='color:var(--text2);font-size:11px'>+ ${d.commander2}</span>`:''}</td>
         <td style="color:var(--text2)">${d.nickname||'—'}</td>
@@ -843,7 +898,9 @@ async function viewFriend(){
     }).join('')}</tbody></table>`;
   }
   document.getElementById('friendView').style.display='block';
+  document.getElementById('friendView').scrollIntoView({behavior:'smooth',block:'start'});
 }
+
 function closeFriendView(){document.getElementById('friendView').style.display='none';}
 
 // ── Render ────────────────────────────────────────────────────────────────────
@@ -934,6 +991,24 @@ window.render = function render(){
         </td>
       </tr>`;
     }).join('')}</tbody></table>`;
+  }
+
+  // Saved friends list
+  const sfl=document.getElementById('savedFriendsList');
+  if(!window.savedFriends||!window.savedFriends.length){
+    sfl.innerHTML='<div class="empty-state" style="padding:.5rem 0">No saved friends yet — add one below.</div>';
+  } else {
+    sfl.innerHTML=window.savedFriends.map(f=>`
+      <div class="friend-card">
+        <div class="friend-info">
+          <div class="friend-name">${f.nickname}</div>
+          <div class="friend-sub" style="font-size:11px;font-family:monospace;opacity:.7">${f.uid.substring(0,20)}...</div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="io-btn primary" onclick="loadFriendView('${f.uid}','${f.nickname}')" style="padding:4px 12px;font-size:12px"><i class="ti ti-eye"></i> View</button>
+          <button class="icon-btn del" onclick="deleteFriend(${f.id})" title="Remove friend"><i class="ti ti-trash"></i></button>
+        </div>
+      </div>`).join('');
   }
 
   // Coverage

@@ -155,6 +155,8 @@ body{font-family:var(--font);background:var(--bg3);color:var(--text);min-height:
 .io-textarea{width:100%;min-height:140px;padding:8px 10px;border-radius:var(--radius);border:0.5px solid var(--border2);background:var(--bg2);color:var(--text);font-size:12px;font-family:monospace;resize:vertical}
 .io-modal{background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius-lg);padding:1.25rem;width:100%;max-width:520px;margin:auto}
 
+.guest-banner{background:#faeeda;border:0.5px solid #ef9f27;border-radius:var(--radius);padding:8px 14px;font-size:12px;color:#633806;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:1rem;flex-wrap:wrap}
+.guest-banner a{color:#633806;font-weight:500;cursor:pointer;text-decoration:underline}
 @media(max-width:600px){.fg2,.fg3{grid-template-columns:1fr}.tabs{overflow-x:auto}.tab{white-space:nowrap;padding:8px 12px;font-size:13px}}
 </style>
 </head>
@@ -174,7 +176,18 @@ body{font-family:var(--font);background:var(--bg3);color:var(--text);min-height:
     </svg>
     Sign in with Google
   </button>
-  <p style="margin-top:1rem;font-size:12px;color:var(--text3)">Your data is private and only accessible to you unless you choose to share it.</p>
+  <div style="display:flex;align-items:center;gap:12px;margin:1rem 0;width:100%;max-width:300px">
+    <div style="flex:1;height:0.5px;background:var(--border2)"></div>
+    <span style="font-size:13px;color:var(--text3)">or</span>
+    <div style="flex:1;height:0.5px;background:var(--border2)"></div>
+  </div>
+  <button onclick="continueAsGuest()" style="background:none;border:0.5px solid var(--border2);border-radius:8px;padding:11px 24px;font-size:14px;color:var(--text2);cursor:pointer;font-family:var(--font);width:100%;max-width:300px">
+    Continue as guest
+  </button>
+  <div style="margin-top:1rem;max-width:340px;background:var(--bg2);border:0.5px solid var(--border);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text2);text-align:left">
+    <strong style="color:var(--text)">⚠ Guest mode:</strong> Your data is saved only in this browser. It will be lost if you clear your browser data. To keep your data permanently or access it on other devices, sign in with Google. You can export your data at any time and import it into a Google account.
+  </div>
+  <p style="margin-top:1rem;font-size:12px;color:var(--text3)">Google sign-in keeps your data private, synced across devices, and lets you share with friends.</p>
 </div>
 
 <!-- APP SCREEN -->
@@ -193,6 +206,10 @@ body{font-family:var(--font);background:var(--bg3);color:var(--text);min-height:
     </div>
   </div>
 
+  <div id="guestBanner" style="display:none" class="guest-banner">
+    <span>⚠ Guest mode — data is saved in this browser only. <a onclick="promptSignIn()">Sign in with Google</a> to sync across devices and enable sharing.</span>
+    <button onclick="promptSignIn()" style="background:#ef9f27;border:none;border-radius:var(--radius);padding:4px 12px;font-size:12px;color:#fff;cursor:pointer;font-family:var(--font);white-space:nowrap">Sign in</button>
+  </div>
   <div class="stats-row">
     <div class="stat-card"><div class="stat-num" id="statTotal">0</div><div class="stat-lbl">Built decks</div></div>
     <div class="stat-card"><div class="stat-num" id="statCovered">0</div><div class="stat-lbl">Colors covered</div></div>
@@ -514,6 +531,55 @@ let currentUser = null;
 let unsub = null;
 
 // Expose auth functions to global scope
+window.continueAsGuest = () => {
+  // Load any existing localStorage data
+  try {
+    window.decks = JSON.parse(localStorage.getItem('cmdDecks_guest') || '[]');
+    window.wishes = JSON.parse(localStorage.getItem('cmdWishes_guest') || '[]');
+    window.savedFriends = JSON.parse(localStorage.getItem('cmdFriends_guest') || '[]');
+  } catch(e) {
+    window.decks = [];
+    window.wishes = [];
+    window.savedFriends = [];
+  }
+  window.guestMode = true;
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'block';
+  document.getElementById('guestBanner').style.display = 'flex';
+  document.getElementById('userName').textContent = 'Guest';
+  document.getElementById('userAvatarPlaceholder').textContent = '?';
+  document.getElementById('shareLink').textContent = 'Sign in with Google to get a share link';
+  // Hide sync dot, show local storage indicator
+  document.getElementById('syncDot').className = 'sync-dot';
+  document.getElementById('syncStatus').textContent = 'Local only — not synced';
+  // Hide friends features that require auth
+  document.getElementById('panel-friends').innerHTML = `
+    <div class="card" style="text-align:center;padding:2rem">
+      <div style="font-size:32px;margin-bottom:12px">🔒</div>
+      <div style="font-weight:500;margin-bottom:8px">Friends & sharing requires a Google account</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:1rem">Sign in with Google to share your decks, view friends' collections, and sync across devices.</div>
+      <button class="io-btn primary" onclick="promptSignIn()" style="margin:0 auto">Sign in with Google</button>
+    </div>`;
+  render();
+};
+
+window.promptSignIn = async () => {
+  // If in guest mode, offer to carry data over
+  if(window.guestMode && (window.decks.length || window.wishes.length)) {
+    const carry = confirm('Sign in with Google? Your current guest data (' + window.decks.length + ' decks) will be imported into your Google account automatically.');
+    if(!carry) return;
+    // Store guest data temporarily so onAuthStateChanged can pick it up
+    sessionStorage.setItem('pendingGuestDecks', JSON.stringify(window.decks));
+    sessionStorage.setItem('pendingGuestWishes', JSON.stringify(window.wishes));
+  }
+  try {
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
+  } catch(e) {
+    alert('Sign in failed: ' + e.message);
+  }
+};
+
 window.signIn = async () => {
   try {
     const provider = new GoogleAuthProvider();
@@ -526,6 +592,10 @@ window.signIn = async () => {
 
 window.signOut = async () => {
   if(unsub) { unsub(); unsub = null; }
+  window.guestMode = false;
+  window.decks = [];
+  window.wishes = [];
+  window.savedFriends = [];
   await fbSignOut(auth);
 };
 
@@ -572,6 +642,8 @@ onAuthStateChanged(auth, async (user) => {
     document.getElementById('appScreen').style.display = 'block';
 
     // Set user info
+    window.guestMode = false;
+    document.getElementById('guestBanner').style.display = 'none';
     document.getElementById('userName').textContent = user.displayName || user.email;
     const avatar = document.getElementById('userAvatar');
     const placeholder = document.getElementById('userAvatarPlaceholder');
@@ -592,9 +664,27 @@ onAuthStateChanged(auth, async (user) => {
     unsub = onSnapshot(doc(db, 'users', user.uid), (snap) => {
       if(snap.exists()) {
         const data = snap.data();
-        window.decks = data.decks || [];
-        window.wishes = data.wishes || [];
-        window.savedFriends = data.savedFriends || [];
+        // Check if there's pending guest data to import
+        const pendingDecks = sessionStorage.getItem('pendingGuestDecks');
+        const pendingWishes = sessionStorage.getItem('pendingGuestWishes');
+        if(pendingDecks) {
+          const guestDecks = JSON.parse(pendingDecks);
+          const existingDecks = data.decks || [];
+          // Merge: add guest decks that don't already exist (by commander name)
+          const existingNames = new Set(existingDecks.map(d=>d.commander));
+          const newDecks = guestDecks.filter(d=>!existingNames.has(d.commander));
+          window.decks = [...existingDecks, ...newDecks];
+          window.wishes = [...(data.wishes||[]), ...(JSON.parse(pendingWishes||'[]'))];
+          window.savedFriends = data.savedFriends || [];
+          sessionStorage.removeItem('pendingGuestDecks');
+          sessionStorage.removeItem('pendingGuestWishes');
+          // Immediately save merged data to Firebase
+          if(window.saveToFirebase) window.saveToFirebase();
+        } else {
+          window.decks = data.decks || [];
+          window.wishes = data.wishes || [];
+          window.savedFriends = data.savedFriends || [];
+        }
       } else {
         window.decks = [];
         window.wishes = [];
@@ -693,7 +783,15 @@ function togglePartnerField(fieldId, checkboxId, noteId){
 }
 
 function save(){
-  if(window.saveToFirebase) window.saveToFirebase();
+  if(window.guestMode) {
+    try {
+      localStorage.setItem('cmdDecks_guest', JSON.stringify(window.decks));
+      localStorage.setItem('cmdWishes_guest', JSON.stringify(window.wishes));
+      localStorage.setItem('cmdFriends_guest', JSON.stringify(window.savedFriends));
+    } catch(e) { console.error('localStorage save failed', e); }
+  } else {
+    if(window.saveToFirebase) window.saveToFirebase();
+  }
 }
 
 function addDeck(){

@@ -353,6 +353,10 @@ body{font-family:var(--font);background:var(--bg3);color:var(--text);min-height:
         <button class="io-btn" onclick="copyShareLink()"><i class="ti ti-share"></i> Copy link</button>
       </div>
       <div id="shareCopied" style="font-size:12px;color:var(--success-text);margin-top:6px;display:none">✓ Copied!</div>
+      <div style="margin-top:12px;padding-top:12px;border-top:0.5px solid var(--border)">
+        <div style="font-size:13px;color:var(--text2);margin-bottom:8px">Want to share with someone who doesn't have an account? Generate a read-only snapshot anyone can open without logging in.</div>
+        <button class="io-btn" onclick="generateSharePage()" style="width:100%">⤴ Generate public share page</button>
+      </div>
     </div>
 
     <div class="card">
@@ -902,6 +906,112 @@ async function loadFriendView(uid, nickname){
 }
 
 function closeFriendView(){document.getElementById('friendView').style.display='none';}
+
+// ── Share page generator ──────────────────────────────────────────────────────
+function generateSharePage(){
+  const decks = window.decks || [];
+  const userName = document.getElementById('userName')?.textContent || 'Commander';
+
+  const CO=['W','U','B','R','G','C'];
+  const CN={W:'White',U:'Blue',B:'Black',R:'Red',G:'Green',C:'Colorless'};
+  const PIE_BG={W:'#f5f0d8',U:'#dbeaf7',B:'#e0dbd0',R:'#fae3df',G:'#daf0de',C:'#ede9f7'};
+  const PIE_TC={W:'#6b5d2f',U:'#185fa5',B:'#2c2c2c',R:'#993c1d',G:'#3b6d11',C:'#534ab7'};
+  const BKT={
+    '1':{label:'Exhibition',bg:'#e6f1fb',tc:'#0c447c'},
+    '2':{label:'Core',bg:'#eaf3de',tc:'#27500a'},
+    '3':{label:'Upgraded',bg:'#faeeda',tc:'#633806'},
+    '4':{label:'Optimized',bg:'#faece7',tc:'#712b13'},
+    '4.5':{label:'Optimized+',bg:'#fde8e0',tc:'#5c1a08'},
+    '5':{label:'cEDH',bg:'#fcebeb',tc:'#791f1f'},
+    '':{label:'Unknown',bg:'#f1efe8',tc:'#444441'},
+  };
+
+  function pipsHTML(colors){
+    return CO.filter(c=>colors.includes(c)).map(c=>`<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:9px;font-weight:700;background:${PIE_BG[c]||'#eee'};color:${PIE_TC[c]||'#333'};border:1px solid ${PIE_TC[c]||'#ccc'}">${c==='C'?'∅':c}</span>`).join('');
+  }
+
+  function bktBadge(b){
+    const cfg=BKT[b||'']||BKT[''];
+    return`<span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;font-size:11px;font-weight:700;background:${cfg.bg};color:${cfg.tc};border:1.5px solid ${cfg.tc}">${b?'B'+b:'?'}</span>`;
+  }
+
+  function autoSlug(n){return n.toLowerCase().replace(/[,'.!?]/g,'').replace(/\s+/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'');}
+
+  const sorted=[...decks].sort((a,b)=>(a.bracket||'9').localeCompare(b.bracket||'9')||a.commander.localeCompare(b.commander));
+  const now = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+
+  const rows = sorted.map(d=>{
+    const eurl=d.edhrec||(d.commander?'https://edhrec.com/commanders/'+autoSlug(d.commander):'');
+    return`<tr>
+      <td><strong>${d.commander}</strong>${d.commander2?` <span style="color:#888;font-size:12px">+ ${d.commander2}</span>`:''}<br>${d.nickname?`<span style="color:#888;font-size:12px">${d.nickname}</span>`:''}${d.deckType?`<span style="background:#f0ede8;color:#666;font-size:11px;padding:1px 6px;border-radius:4px;margin-left:4px">${d.deckType}</span>`:''}</td>
+      <td style="text-align:center">${pipsHTML(d.colors)}</td>
+      <td style="text-align:center">${bktBadge(d.bracket)}</td>
+      <td style="text-align:center">${eurl?`<a href="${eurl}" target="_blank" style="color:#0c447c;text-decoration:none;font-size:13px">↗ EDHREC</a>`:'—'}</td>
+      <td style="text-align:center">${d.archi?`<a href="${d.archi}" target="_blank" style="color:#0c447c;text-decoration:none;font-size:13px">↗ Deck</a>`:'—'}</td>
+    </tr>`;
+  }).join('');
+
+  const page = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${userName}'s Commander Decks</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f4f0;color:#1a1a18;padding:2rem 1rem}
+.container{max-width:860px;margin:0 auto}
+header{margin-bottom:2rem;padding-bottom:1rem;border-bottom:2px solid #e0ddd8}
+h1{font-size:24px;font-weight:500;margin-bottom:4px}
+.meta{font-size:13px;color:#888}
+.stats{display:flex;gap:12px;margin:1rem 0;flex-wrap:wrap}
+.stat{background:#fff;border:0.5px solid #e0ddd8;border-radius:8px;padding:10px 16px;text-align:center;min-width:90px}
+.stat-num{font-size:22px;font-weight:500}
+.stat-lbl{font-size:11px;color:#888;margin-top:2px}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08)}
+th{text-align:left;padding:10px 14px;font-size:12px;font-weight:500;color:#888;background:#faf9f7;border-bottom:0.5px solid #e8e6e0;text-transform:uppercase;letter-spacing:.04em}
+td{padding:10px 14px;border-bottom:0.5px solid #f0eee9;vertical-align:middle;font-size:14px}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#faf9f7}
+.bracket-section{margin-top:2rem}
+.bracket-header{font-size:13px;font-weight:500;padding:4px 12px;border-radius:6px;display:inline-block;margin-bottom:10px}
+footer{margin-top:2rem;font-size:12px;color:#aaa;text-align:center}
+@media(max-width:600px){table{font-size:13px}th,td{padding:8px 10px}}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>⚔️ ${userName}'s Commander Decks</h1>
+    <div class="meta">Snapshot generated ${now} · ${decks.length} deck${decks.length!==1?'s':''} · Read-only view</div>
+    <div class="stats">
+      <div class="stat"><div class="stat-num">${decks.length}</div><div class="stat-lbl">Total decks</div></div>
+      <div class="stat"><div class="stat-num">${new Set(decks.map(d=>d.bracket||'')).size}</div><div class="stat-lbl">Brackets</div></div>
+      <div class="stat"><div class="stat-num">${new Set(decks.map(d=>d.key)).size}</div><div class="stat-lbl">Color combos</div></div>
+      <div class="stat"><div class="stat-num">${decks.filter(d=>d.archi).length}</div><div class="stat-lbl">Deck links</div></div>
+    </div>
+  </header>
+
+  <table>
+    <thead><tr>
+      <th>Commander</th>
+      <th>Colors</th>
+      <th>Bracket</th>
+      <th>EDHREC</th>
+      <th>Deck link</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+
+  <footer>Generated from <a href="https://pygrus.github.io/commander-deck-tracker/" style="color:#aaa">Commander Deck Tracker</a> · This is a read-only snapshot and may not reflect the current deck list.</footer>
+</div>
+</body>
+</html>`;
+
+  const blob = new Blob([page], {type:'text/html'});
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank');
+}
 
 // ── Render ────────────────────────────────────────────────────────────────────
 window.render = function render(){

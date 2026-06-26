@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Commander Deck Tracker</title>
+<link rel="stylesheet" href="https://unpkg.com/@tabler/icons-webfont@3.19.0/tabler-icons.min.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #ffffff; --bg2: #f5f5f2; --bg3: #ebebea;
+    --text: #1a1a18; --text2: #6b6b68; --text3: #9e9e9a;
+    --border: rgba(0,0,0,0.12); --border2: rgba(0,0,0,0.22);
+    --info-bg: #e6f1fb; --info-text: #0c447c; --info-border: rgba(24,95,165,0.3);
+    --danger-bg: #fcebeb; --danger-text: #791f1f;
+    --success-bg: #eaf3de; --success-text: #27500a;
+    --radius: 8px; --radius-lg: 12px;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1e1e1c; --bg2: #2a2a28; --bg3: #333330;
+      --text: #e8e8e4; --text2: #9e9e9a; --text3: #6b6b68;
+      --border: rgba(255,255,255,0.1); --border2: rgba(255,255,255,0.2);
+      --info-bg: #0c2a44; --info-text: #85b7eb;
+      --danger-bg: #2d1010; --danger-text: #f09595;
+      --success-bg: #122008; --success-text: #97c459;
+    }
+  }
+  body { font-family: var(--font); background: var(--bg3); color: var(--text); min-height: 100vh; }
+  .container { max-width: 900px; margin: 0 auto; padding: 1.5rem 1rem; }
+  h1 { font-size: 22px; font-weight: 500; margin-bottom: 4px; }
+  .sub { font-size: 13px; color: var(--text2); margin-bottom: 1.5rem; }
+  .stats-row { display: flex; gap: 8px; margin-bottom: 1.25rem; flex-wrap: wrap; }
+  .stat-card { flex: 1; min-width: 72px; background: var(--bg); border-radius: var(--radius); padding: .65rem .75rem; text-align: center; border: 0.5px solid var(--border); }
+  .stat-num { font-size: 22px; font-weight: 500; }
+  .stat-lbl { font-size: 11px; color: var(--text2); margin-top: 2px; }
+  .tabs { display: flex; border-bottom: 0.5px solid var(--border); margin-bottom: 1.25rem; gap: 0; }
+  .tab { padding: 8px 16px; font-size: 14px; cursor: pointer; border: none; background: none; color: var(--text2); border-bottom: 2px solid transparent; margin-bottom: -0.5px; font-family: var(--font); }
+  .tab.active { color: var(--text); font-weight: 500; border-bottom-color: var(--text); }
+  .tab:hover:not(.active) { color: var(--text); }
+  .panel { display: none; } .panel.active { display: block; }
+  .card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin-bottom: 1rem; }
+  .slabel { font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .04em; }
+  .fg { display: grid; gap: 10px; margin-bottom: 10px; }
+  .fg2 { grid-template-columns: 1fr 1fr; }
+  .fg3 { grid-template-columns: 1fr 1fr 1fr; }
+  .finput, .fsel, .ftxt { width: 100%; padding: 8px 10px; border-radius: var(--radius); border: 0.5px solid var(--border2); background: var(--bg2); color: var(--text); font-size: 13px; font-family: var(--font); }
+  .finput:focus, .fsel:focus, .ftxt:focus { outline: none; border-color: #378add; }
+  .ftxt { resize: vertical; min-height: 52px; }
+  .add-btn { background: var(--bg2); border: 0.5px solid var(--border2); border-radius: var(--radius); padding: 8px 16px; font-size: 14px; cursor: pointer; color: var(--text); width: 100%; font-family: var(--font); }
+  .add-btn:hover { background: var(--bg3); }
+  .colors-row { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+  .pip { width: 27px; height: 27px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; transition: transform .1s, opacity .1s; }
+  .pip:hover { transform: scale(1.1); }
+  .pip.sel { border-color: #fff; box-shadow: 0 0 0 2px #888; transform: scale(1.08); }
+  .pip.unsel { opacity: .35; }
+  .pip-W { background: #f5f0d8; color: #6b5d2f; }
+  .pip-U { background: #3a7ebf; color: #fff; }
+  .pip-B { background: #2c2c2c; color: #e0d7c6; }
+  .pip-R { background: #c73f2e; color: #fff; }
+  .pip-G { background: #3a7a45; color: #fff; }
+  .pip-C { background: #9c8fbf; color: #fff; }
+  .dtable { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+  .dtable th { text-align: left; padding: 6px 8px; color: var(--text2); font-weight: 500; border-bottom: 0.5px solid var(--border); white-space: nowrap; }
+  .dtable td { padding: 6px 8px; border-bottom: 0.5px solid var(--border); vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dtable tr:last-child td { border-bottom: none; }
+  .dtable a { color: var(--info-text); text-decoration: none; font-size: 12px; }
+  .dtable a:hover { text-decoration: underline; }
+  .icon-btn { background: none; border: none; cursor: pointer; color: var(--text2); padding: 2px 4px; border-radius: 4px; font-size: 15px; line-height: 1; }
+  .icon-btn.edit:hover { color: var(--info-text); }
+  .icon-btn.del:hover { color: var(--danger-text); }
+  .icon-btn.promote:hover { color: var(--success-text); }
+  .pips-display { display: flex; gap: 3px; flex-wrap: wrap; }
+  .mpip { width: 15px; height: 15px; border-radius: 50%; font-size: 8px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .mpip-W { background: #f5f0d8; color: #6b5d2f; border: 1px solid #c8b87a; }
+  .mpip-U { background: #3a7ebf; color: #fff; }
+  .mpip-B { background: #2c2c2c; color: #e0d7c6; border: 1px solid #555; }
+  .mpip-R { background: #c73f2e; color: #fff; }
+  .mpip-G { background: #3a7a45; color: #fff; }
+  .mpip-C { background: #9c8fbf; color: #fff; }
+  .bkt-badge { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; font-size: 11px; font-weight: 700; border: 1.5px solid; }
+  .deck-type-tag { font-size: 11px; color: var(--text2); background: var(--bg2); border-radius: var(--radius); padding: 1px 6px; border: 0.5px solid var(--border); }
+  .badge { display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: var(--radius); font-weight: 500; }
+  .badge-high { background: #faeeda; color: #633806; }
+  .badge-med { background: #e6f1fb; color: #0c447c; }
+  .badge-low { background: #f1efe8; color: #444441; }
+  .pie-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 8px; margin-bottom: 1rem; }
+  .color-pill { border-radius: var(--radius); padding: 5px 6px; font-size: 11px; font-weight: 500; text-align: center; border: 0.5px solid transparent; }
+  .bkt-bar { display: flex; gap: 8px; align-items: flex-end; height: 80px; margin-bottom: 8px; }
+  .bkt-col { display: flex; flex-direction: column; align-items: center; flex: 1; gap: 4px; }
+  .bkt-bar-fill { width: 100%; border-radius: 4px 4px 0 0; min-height: 4px; }
+  .bkt-bar-lbl { font-size: 11px; color: var(--text2); }
+  .bkt-bar-num { font-size: 13px; font-weight: 500; }
+  .empty-state { color: var(--text2); font-size: 13px; padding: 1rem 0; text-align: center; }
+  .err { font-size: 12px; color: var(--danger-text); margin-top: 4px; }
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 100; align-items: flex-start; justify-content: center; padding: 2rem 1rem; overflow-y: auto; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--bg); border: 0.5px solid var(--border2); border-radius: var(--radius-lg); padding: 1.25rem; width: 100%; max-width: 580px; margin: auto; }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; border-bottom: 0.5px solid var(--border); padding-bottom: .75rem; }
+  .modal-title { font-size: 15px; font-weight: 500; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 1rem; }
+  .btn-save { background: var(--info-bg); color: var(--info-text); border: 0.5px solid var(--info-border); border-radius: var(--radius); padding: 8px 18px; font-size: 13px; cursor: pointer; font-weight: 500; font-family: var(--font); }
+  .btn-save:hover { opacity: .85; }
+  .btn-cancel { background: var(--bg2); color: var(--text2); border: 0.5px solid var(--border2); border-radius: var(--radius); padding: 8px 18px; font-size: 13px; cursor: pointer; font-family: var(--font); }
+  .btn-cancel:hover { background: var(--bg3); }
+  @media (max-width: 600px) {
+    .fg2, .fg3 { grid-template-columns: 1fr; }
+    .tabs { overflow-x: auto; }
+    .tab { white-space: nowrap; padding: 8px 12px; font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Commander Deck Tracker</h1>
+  <p class="sub">Track your Commander decks, power levels, and ideas in the pipeline.</p>
+
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-num" id="statTotal">0</div><div class="stat-lbl">Built decks</div></div>
+    <div class="stat-card"><div class="stat-num" id="statCovered">0</div><div class="stat-lbl">Colors covered</div></div>
+    <div class="stat-card"><div class="stat-num" id="statMissing">32</div><div class="stat-lbl">Combos left</div></div>
+    <div class="stat-card"><div class="stat-num" id="statWish">0</div><div class="stat-lbl">Wishlist</div></div>
+    <div class="stat-card"><div class="stat-num" id="statArchi">0</div><div class="stat-lbl">On Archidekt</div></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('decks',this)"><i class="ti ti-cards"></i> My decks</button>
+    <button class="tab" onclick="switchTab('brackets',this)"><i class="ti ti-chart-bar"></i> Brackets</button>
+    <button class="tab" onclick="switchTab('wishlist',this)"><i class="ti ti-star"></i> Wishlist</button>
+    <button class="tab" onclick="switchTab('coverage',this)"><i class="ti ti-palette"></i> Coverage</button>
+  </div>
+
+  <!-- DECKS PANEL -->
+  <div id="panel-decks" class="panel active">
+    <div class="card">
+      <div class="slabel">Add a deck</div>
+      <div class="fg fg2">
+        <input class="finput" id="cmdName" placeholder="Commander name (e.g. Atraxa)">
+        <input class="finput" id="deckName" placeholder="Deck nickname (optional)">
+      </div>
+      <div class="fg fg3">
+        <div>
+          <div class="slabel">Bracket</div>
+          <select class="fsel" id="dBracket">
+            <option value="">— Unknown —</option>
+            <option value="1">1 — Exhibition</option>
+            <option value="2">2 — Core</option>
+            <option value="3">3 — Upgraded</option>
+            <option value="4">4 — Optimized</option>
+            <option value="5">5 — cEDH</option>
+          </select>
+        </div>
+        <div>
+          <div class="slabel">Deck type / theme</div>
+          <input class="finput" id="dType" placeholder="e.g. Tokens, Lifegain, Combo...">
+        </div>
+        <div>
+          <div class="slabel">Color identity</div>
+          <div class="colors-row" id="colorPips" style="margin-bottom:0">
+            <div class="pip pip-W unsel" data-c="W" onclick="toggleColor(this,'deck')">W</div>
+            <div class="pip pip-U unsel" data-c="U" onclick="toggleColor(this,'deck')">U</div>
+            <div class="pip pip-B unsel" data-c="B" onclick="toggleColor(this,'deck')">B</div>
+            <div class="pip pip-R unsel" data-c="R" onclick="toggleColor(this,'deck')">R</div>
+            <div class="pip pip-G unsel" data-c="G" onclick="toggleColor(this,'deck')">G</div>
+            <div class="pip pip-C unsel" data-c="C" onclick="toggleColor(this,'deck')" title="Colorless">∅</div>
+          </div>
+        </div>
+      </div>
+      <div class="fg fg2">
+        <div>
+          <div class="slabel">EDHREC URL <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px">(auto-generated if blank)</span></div>
+          <input class="finput" id="dEdhrec" placeholder="https://edhrec.com/commanders/...">
+        </div>
+        <div>
+          <div class="slabel">Archidekt URL</div>
+          <input class="finput" id="dArchi" placeholder="https://archidekt.com/decks/...">
+        </div>
+      </div>
+      <div id="deckErr" class="err" style="display:none"></div>
+      <button class="add-btn" onclick="addDeck()"><i class="ti ti-plus"></i> Add deck</button>
+    </div>
+    <div class="card">
+      <div class="slabel" style="margin-bottom:10px">Built decks</div>
+      <div style="overflow-x:auto" id="deckList"></div>
+    </div>
+  </div>
+
+  <!-- BRACKETS PANEL -->
+  <div id="panel-brackets" class="panel">
+    <div class="card">
+      <div class="slabel" style="margin-bottom:12px">Bracket distribution</div>
+      <div class="bkt-bar" id="bktBar"></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px" id="bktLegend"></div>
+    </div>
+    <div class="card">
+      <div class="slabel" style="margin-bottom:10px">Decks by bracket</div>
+      <div id="bktDeckList"></div>
+    </div>
+  </div>
+
+  <!-- WISHLIST PANEL -->
+  <div id="panel-wishlist" class="panel">
+    <div class="card">
+      <div class="slabel">Add to wishlist</div>
+      <div class="fg fg2">
+        <input class="finput" id="wCmdName" placeholder="Commander name">
+        <input class="finput" id="wDeckName" placeholder="Deck concept (optional)">
+      </div>
+      <div class="slabel">Color identity</div>
+      <div class="colors-row" id="wColorPips">
+        <div class="pip pip-W unsel" data-c="W" onclick="toggleColor(this,'wish')">W</div>
+        <div class="pip pip-U unsel" data-c="U" onclick="toggleColor(this,'wish')">U</div>
+        <div class="pip pip-B unsel" data-c="B" onclick="toggleColor(this,'wish')">B</div>
+        <div class="pip pip-R unsel" data-c="R" onclick="toggleColor(this,'wish')">R</div>
+        <div class="pip pip-G unsel" data-c="G" onclick="toggleColor(this,'wish')">G</div>
+        <div class="pip pip-C unsel" data-c="C" onclick="toggleColor(this,'wish')" title="Colorless">∅</div>
+      </div>
+      <div class="fg fg2" style="margin-bottom:10px">
+        <div>
+          <div class="slabel">Priority</div>
+          <select class="fsel" id="wPriority">
+            <option value="high">High — building soon</option>
+            <option value="med" selected>Medium — on the radar</option>
+            <option value="low">Low — someday maybe</option>
+          </select>
+        </div>
+        <div>
+          <div class="slabel">Deck type / theme</div>
+          <input class="finput" id="wType" placeholder="e.g. Tokens, Reanimator...">
+        </div>
+      </div>
+      <div style="margin-bottom:10px">
+        <div class="slabel">Notes (optional)</div>
+        <textarea class="ftxt" id="wNotes" placeholder="Theme ideas, key cards, what you're excited about..."></textarea>
+      </div>
+      <div id="wishErr" class="err" style="display:none"></div>
+      <button class="add-btn" onclick="addWish()"><i class="ti ti-star"></i> Add to wishlist</button>
+    </div>
+    <div class="card">
+      <div class="slabel" style="margin-bottom:10px">Deck ideas</div>
+      <div style="overflow-x:auto" id="wishList"></div>
+    </div>
+  </div>
+
+  <!-- COVERAGE PANEL -->
+  <div id="panel-coverage" class="panel">
+    <div class="card">
+      <div class="slabel" style="margin-bottom:10px">Color pie coverage</div>
+      <div style="display:flex;gap:14px;font-size:12px;color:var(--text2);margin-bottom:12px;flex-wrap:wrap">
+        <span><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#3a7a45;margin-right:4px;vertical-align:middle"></span>Built</span>
+        <span><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#9c8fbf;opacity:.65;margin-right:4px;vertical-align:middle;border:1px dotted #555"></span>On wishlist</span>
+        <span><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#aaa;opacity:.3;margin-right:4px;vertical-align:middle;border:1px dashed #aaa"></span>Not yet planned</span>
+      </div>
+      <div class="pie-grid" id="pieGrid"></div>
+    </div>
+    <div class="card" id="missingCard">
+      <div class="slabel" style="margin-bottom:6px">Not yet planned</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.9" id="missingList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div id="editModal" class="modal-overlay" onclick="handleOverlayClick(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="editModalTitle">Edit deck</span>
+      <button class="icon-btn" onclick="closeEdit()" aria-label="Close"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="fg fg2">
+      <div><div class="slabel">Commander name</div><input class="finput" id="eCmd" placeholder="Commander name"></div>
+      <div><div class="slabel">Deck nickname</div><input class="finput" id="eNick" placeholder="Nickname (optional)"></div>
+    </div>
+    <div class="fg fg2">
+      <div>
+        <div class="slabel">Bracket</div>
+        <select class="fsel" id="eBracket">
+          <option value="">— Unknown —</option>
+          <option value="1">1 — Exhibition</option>
+          <option value="2">2 — Core</option>
+          <option value="3">3 — Upgraded</option>
+          <option value="4">4 — Optimized</option>
+          <option value="5">5 — cEDH</option>
+        </select>
+      </div>
+      <div>
+        <div class="slabel">Deck type / theme</div>
+        <input class="finput" id="eType" placeholder="e.g. Tokens, Lifegain, Combo...">
+      </div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div class="slabel">Color identity</div>
+      <div class="colors-row" id="eColorPips">
+        <div class="pip pip-W unsel" data-c="W" onclick="toggleColor(this,'edit')">W</div>
+        <div class="pip pip-U unsel" data-c="U" onclick="toggleColor(this,'edit')">U</div>
+        <div class="pip pip-B unsel" data-c="B" onclick="toggleColor(this,'edit')">B</div>
+        <div class="pip pip-R unsel" data-c="R" onclick="toggleColor(this,'edit')">R</div>
+        <div class="pip pip-G unsel" data-c="G" onclick="toggleColor(this,'edit')">G</div>
+        <div class="pip pip-C unsel" data-c="C" onclick="toggleColor(this,'edit')" title="Colorless">∅</div>
+      </div>
+    </div>
+    <div class="fg fg2">
+      <div>
+        <div class="slabel">EDHREC URL</div>
+        <input class="finput" id="eEdhrec" placeholder="https://edhrec.com/commanders/...">
+        <div style="font-size:11px;color:var(--text2);margin-top:4px">Leave blank to auto-generate, or paste a specific page (e.g. /tokens, /lifegain)</div>
+      </div>
+      <div>
+        <div class="slabel">Archidekt URL</div>
+        <input class="finput" id="eArchi" placeholder="https://archidekt.com/decks/...">
+      </div>
+    </div>
+    <div style="margin-top:8px;margin-bottom:4px">
+      <div class="slabel">Notes / description</div>
+      <textarea class="ftxt" id="eNotes" placeholder="Deck notes, strategy, key cards..."></textarea>
+    </div>
+    <div id="editErr" class="err" style="display:none"></div>
+    <div class="modal-actions">
+      <button class="btn-save" onclick="saveEdit()"><i class="ti ti-check"></i> Save changes</button>
+      <button class="btn-cancel" onclick="closeEdit()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const ALL_COMBOS=[
+  {key:'W',label:'White',colors:['W']},{key:'U',label:'Blue',colors:['U']},{key:'B',label:'Black',colors:['B']},
+  {key:'R',label:'Red',colors:['R']},{key:'G',label:'Green',colors:['G']},{key:'C',label:'Colorless',colors:['C']},
+  {key:'WU',label:'Azorius',colors:['W','U']},{key:'WB',label:'Orzhov',colors:['W','B']},{key:'WR',label:'Boros',colors:['W','R']},
+  {key:'WG',label:'Selesnya',colors:['W','G']},{key:'UB',label:'Dimir',colors:['U','B']},{key:'UR',label:'Izzet',colors:['U','R']},
+  {key:'UG',label:'Simic',colors:['U','G']},{key:'BR',label:'Rakdos',colors:['B','R']},{key:'BG',label:'Golgari',colors:['B','G']},
+  {key:'RG',label:'Gruul',colors:['R','G']},{key:'WUB',label:'Esper',colors:['W','U','B']},{key:'WUR',label:'Jeskai',colors:['W','U','R']},
+  {key:'WUG',label:'Bant',colors:['W','U','G']},{key:'WBR',label:'Mardu',colors:['W','B','R']},{key:'WBG',label:'Abzan',colors:['W','B','G']},
+  {key:'WRG',label:'Naya',colors:['W','R','G']},{key:'UBR',label:'Grixis',colors:['U','B','R']},{key:'UBG',label:'Sultai',colors:['U','B','G']},
+  {key:'URG',label:'Temur',colors:['U','R','G']},{key:'BRG',label:'Jund',colors:['B','R','G']},
+  {key:'WUBR',label:'Sans-Green',colors:['W','U','B','R']},{key:'WUBG',label:'Sans-Red',colors:['W','U','B','G']},
+  {key:'WURG',label:'Sans-Black',colors:['W','U','R','G']},{key:'WBRG',label:'Sans-Blue',colors:['W','B','R','G']},
+  {key:'UBRG',label:'Sans-White',colors:['U','B','R','G']},{key:'WUBRG',label:'5-Color',colors:['W','U','B','R','G']},
+];
+const CO=['W','U','B','R','G','C'];
+const PIE_BG={W:'#f5f0d8',U:'#dbeaf7',B:'#e0dbd0',R:'#fae3df',G:'#daf0de',C:'#ede9f7'};
+const PIE_TC={W:'#6b5d2f',U:'#185fa5',B:'#2c2c2c',R:'#993c1d',G:'#3b6d11',C:'#534ab7'};
+const CN={W:'White',U:'Blue',B:'Black',R:'Red',G:'Green',C:'Colorless'};
+const BKT_CFG={
+  '1':{label:'1 — Exhibition',bg:'#e6f1fb',tc:'#0c447c',bar:'#85b7eb'},
+  '2':{label:'2 — Core',bg:'#eaf3de',tc:'#27500a',bar:'#97c459'},
+  '3':{label:'3 — Upgraded',bg:'#faeeda',tc:'#633806',bar:'#ef9f27'},
+  '4':{label:'4 — Optimized',bg:'#faece7',tc:'#712b13',bar:'#f0997b'},
+  '5':{label:'5 — cEDH',bg:'#fcebeb',tc:'#791f1f',bar:'#e24b4a'},
+  '':{label:'Unknown',bg:'#f1efe8',tc:'#444441',bar:'#b4b2a9'},
+};
+
+let decks=[],wishes=[],selDeck=[],selWish=[],selEdit=[],editingId=null;
+try{decks=JSON.parse(localStorage.getItem('cmdDecks')||'[]');}catch(e){}
+try{wishes=JSON.parse(localStorage.getItem('cmdWishes')||'[]');}catch(e){}
+
+function switchTab(id,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('panel-'+id).classList.add('active');
+}
+
+function toggleColor(el,mode){
+  const c=el.dataset.c;
+  let sel=mode==='deck'?selDeck:mode==='wish'?selWish:selEdit;
+  const pipsId=mode==='deck'?'#colorPips':mode==='wish'?'#wColorPips':'#eColorPips';
+  if(c==='C'){if(mode==='deck')selDeck=['C'];else if(mode==='wish')selWish=['C'];else selEdit=['C'];}
+  else{const ci=sel.indexOf('C');if(ci>-1)sel.splice(ci,1);const idx=sel.indexOf(c);if(idx>-1)sel.splice(idx,1);else sel.push(c);}
+  const cur=mode==='deck'?selDeck:mode==='wish'?selWish:selEdit;
+  document.querySelectorAll(pipsId+' .pip').forEach(p=>{
+    const isC=p.dataset.c==='C';
+    if(c==='C'){p.classList.toggle('sel',isC);p.classList.toggle('unsel',!isC);}
+    else{if(isC){p.classList.remove('sel');p.classList.add('unsel');return;}
+    p.classList.toggle('sel',cur.includes(p.dataset.c));p.classList.toggle('unsel',!cur.includes(p.dataset.c));}
+  });
+}
+
+function colorKey(c){return CO.filter(x=>c.includes(x)).join('');}
+function autoSlug(n){return n.toLowerCase().replace(/[,'.!?]/g,'').replace(/\s+/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'');}
+function pipsHTML(colors){return CO.filter(c=>colors.includes(c)).map(c=>`<div class="mpip mpip-${c}" title="${CN[c]}">${c==='C'?'∅':c}</div>`).join('');}
+function bktBadge(b){const cfg=BKT_CFG[b||''];return`<span class="bkt-badge" style="background:${cfg.bg};color:${cfg.tc};border-color:${cfg.tc}">${b?'B'+b:'?'}</span>`;}
+function edhrecURL(d){return d.edhrec||(d.commander?'https://edhrec.com/commanders/'+autoSlug(d.commander):'');}
+
+function addDeck(){
+  const cmd=document.getElementById('cmdName').value.trim();
+  const err=document.getElementById('deckErr');
+  if(!cmd){err.textContent='Enter a commander name.';err.style.display='block';return;}
+  if(!selDeck.length){err.textContent='Select at least one color.';err.style.display='block';return;}
+  err.style.display='none';
+  decks.push({id:Date.now(),commander:cmd,nickname:document.getElementById('deckName').value.trim(),
+    colors:[...selDeck],key:colorKey(selDeck),bracket:document.getElementById('dBracket').value,
+    archi:document.getElementById('dArchi').value.trim(),edhrec:document.getElementById('dEdhrec').value.trim(),
+    deckType:document.getElementById('dType').value.trim(),notes:''});
+  save();
+  ['cmdName','deckName','dArchi','dEdhrec','dType'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('dBracket').value='';
+  selDeck=[];document.querySelectorAll('#colorPips .pip').forEach(p=>{p.classList.remove('sel');p.classList.add('unsel');});
+  render();
+}
+
+function addWish(){
+  const cmd=document.getElementById('wCmdName').value.trim();
+  const err=document.getElementById('wishErr');
+  if(!cmd){err.textContent='Enter a commander name.';err.style.display='block';return;}
+  if(!selWish.length){err.textContent='Select at least one color.';err.style.display='block';return;}
+  err.style.display='none';
+  wishes.push({id:Date.now(),commander:cmd,nickname:document.getElementById('wDeckName').value.trim(),
+    colors:[...selWish],key:colorKey(selWish),notes:document.getElementById('wNotes').value.trim(),
+    priority:document.getElementById('wPriority').value,deckType:document.getElementById('wType').value.trim()});
+  save();
+  ['wCmdName','wDeckName','wNotes','wType'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('wPriority').value='med';
+  selWish=[];document.querySelectorAll('#wColorPips .pip').forEach(p=>{p.classList.remove('sel');p.classList.add('unsel');});
+  render();
+}
+
+function openEdit(id){
+  const d=decks.find(x=>x.id===id);if(!d)return;
+  editingId=id;
+  document.getElementById('eCmd').value=d.commander;
+  document.getElementById('eNick').value=d.nickname||'';
+  document.getElementById('eBracket').value=d.bracket||'';
+  document.getElementById('eType').value=d.deckType||'';
+  document.getElementById('eEdhrec').value=d.edhrec||'';
+  document.getElementById('eArchi').value=d.archi||'';
+  document.getElementById('eNotes').value=d.notes||'';
+  document.getElementById('editModalTitle').textContent='Edit — '+d.commander;
+  selEdit=[...d.colors];
+  document.querySelectorAll('#eColorPips .pip').forEach(p=>{
+    p.classList.toggle('sel',selEdit.includes(p.dataset.c));
+    p.classList.toggle('unsel',!selEdit.includes(p.dataset.c));
+  });
+  document.getElementById('editErr').style.display='none';
+  document.getElementById('editModal').classList.add('open');
+}
+
+function closeEdit(){document.getElementById('editModal').classList.remove('open');editingId=null;selEdit=[];}
+function handleOverlayClick(e){if(e.target===document.getElementById('editModal'))closeEdit();}
+
+function saveEdit(){
+  const cmd=document.getElementById('eCmd').value.trim();
+  const err=document.getElementById('editErr');
+  if(!cmd){err.textContent='Commander name is required.';err.style.display='block';return;}
+  if(!selEdit.length){err.textContent='Select at least one color.';err.style.display='block';return;}
+  err.style.display='none';
+  const idx=decks.findIndex(x=>x.id===editingId);if(idx===-1)return;
+  decks[idx]={...decks[idx],commander:cmd,nickname:document.getElementById('eNick').value.trim(),
+    bracket:document.getElementById('eBracket').value,deckType:document.getElementById('eType').value.trim(),
+    edhrec:document.getElementById('eEdhrec').value.trim(),archi:document.getElementById('eArchi').value.trim(),
+    notes:document.getElementById('eNotes').value.trim(),colors:[...selEdit],key:colorKey(selEdit)};
+  save();closeEdit();render();
+}
+
+function deleteDeck(id){if(confirm('Remove this deck?')){decks=decks.filter(d=>d.id!==id);save();render();}}
+function deleteWish(id){if(confirm('Remove this wishlist entry?')){wishes=wishes.filter(w=>w.id!==id);save();render();}}
+function promoteWish(id){
+  const w=wishes.find(x=>x.id===id);if(!w)return;
+  decks.push({id:Date.now(),commander:w.commander,nickname:w.nickname,colors:w.colors,key:w.key,
+    bracket:'',archi:'',edhrec:'',deckType:w.deckType||'',notes:w.notes||''});
+  wishes=wishes.filter(x=>x.id!==id);save();render();
+}
+
+function save(){
+  try{localStorage.setItem('cmdDecks',JSON.stringify(decks));localStorage.setItem('cmdWishes',JSON.stringify(wishes));}catch(e){}
+}
+
+function render(){
+  const ownedKeys=new Set(decks.map(d=>d.key));
+  const wishKeys=new Set(wishes.map(w=>w.key));
+  document.getElementById('statTotal').textContent=decks.length;
+  document.getElementById('statCovered').textContent=ownedKeys.size;
+  document.getElementById('statMissing').textContent=ALL_COMBOS.length-ownedKeys.size;
+  document.getElementById('statWish').textContent=wishes.length;
+  document.getElementById('statArchi').textContent=decks.filter(d=>d.archi).length;
+
+  const dl=document.getElementById('deckList');
+  if(!decks.length){dl.innerHTML='<div class="empty-state">No decks yet. Add your first one above!</div>';}
+  else{
+    const sorted=[...decks].sort((a,b)=>(a.bracket||'9').localeCompare(b.bracket||'9')||a.commander.localeCompare(b.commander));
+    dl.innerHTML=`<table class="dtable"><thead><tr>
+      <th style="width:22%">Commander</th><th style="width:14%">Nickname</th><th style="width:10%">Colors</th>
+      <th style="width:12%">Type / theme</th><th style="width:7%">Bracket</th>
+      <th style="width:9%">EDHREC</th><th style="width:9%">Archidekt</th><th style="width:10%"></th>
+    </tr></thead><tbody>${sorted.map(d=>{
+      const eurl=edhrecURL(d);const combo=ALL_COMBOS.find(c=>c.key===d.key);
+      return`<tr>
+        <td style="font-weight:500">${d.commander}</td>
+        <td style="color:var(--text2)">${d.nickname||'—'}</td>
+        <td><div class="pips-display">${pipsHTML(d.colors)}</div></td>
+        <td>${d.deckType?`<span class="deck-type-tag">${d.deckType}</span>`:'<span style="color:var(--text3);font-size:12px">—</span>'}</td>
+        <td>${bktBadge(d.bracket)}</td>
+        <td>${eurl?`<a href="${eurl}" target="_blank" rel="noopener"><i class="ti ti-external-link" style="font-size:12px"></i> View</a>`:'<span style="font-size:12px;color:var(--text3)">—</span>'}</td>
+        <td>${d.archi?`<a href="${d.archi}" target="_blank" rel="noopener"><i class="ti ti-external-link" style="font-size:12px"></i> View</a>`:'<span style="font-size:12px;color:var(--text3)">—</span>'}</td>
+        <td style="white-space:nowrap">
+          <button class="icon-btn edit" onclick="openEdit(${d.id})" title="Edit deck"><i class="ti ti-edit"></i></button>
+          <button class="icon-btn del" onclick="deleteDeck(${d.id})" title="Remove"><i class="ti ti-trash"></i></button>
+        </td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+  }
+
+  const bktCounts={'1':0,'2':0,'3':0,'4':0,'5':0,'':0};
+  decks.forEach(d=>bktCounts[d.bracket||'']++);
+  const maxCount=Math.max(1,...Object.values(bktCounts));
+  document.getElementById('bktBar').innerHTML=['1','2','3','4','5',''].map(b=>{
+    const cfg=BKT_CFG[b];const cnt=bktCounts[b];const pct=Math.round((cnt/maxCount)*64);
+    return`<div class="bkt-col"><div class="bkt-bar-num">${cnt}</div><div class="bkt-bar-fill" style="height:${pct+4}px;background:${cfg.bar}"></div><div class="bkt-bar-lbl">${b?'B'+b:'?'}</div></div>`;
+  }).join('');
+  document.getElementById('bktLegend').innerHTML=['1','2','3','4','5'].map(b=>{
+    const cfg=BKT_CFG[b];return`<span style="font-size:12px;padding:3px 9px;border-radius:var(--radius);background:${cfg.bg};color:${cfg.tc}">${cfg.label}</span>`;
+  }).join('');
+  const bktDL=document.getElementById('bktDeckList');
+  if(!decks.length){bktDL.innerHTML='<div class="empty-state">No decks yet.</div>';}
+  else{
+    let html='';
+    ['1','2','3','4','5',''].forEach(b=>{
+      const group=decks.filter(d=>(d.bracket||'')===b);if(!group.length)return;
+      const cfg=BKT_CFG[b];
+      html+=`<div style="margin-bottom:14px">
+        <div style="font-size:12px;font-weight:500;padding:3px 10px;border-radius:var(--radius);background:${cfg.bg};color:${cfg.tc};display:inline-block;margin-bottom:8px">${cfg.label} · ${group.length} deck${group.length!==1?'s':''}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">${group.map(d=>`<div style="background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--radius);padding:6px 12px;font-size:13px;cursor:pointer" onclick="openEdit(${d.id})" title="Click to edit">
+          <span style="font-weight:500">${d.commander}</span>${d.nickname?`<span style="color:var(--text2);margin-left:5px;font-size:12px">${d.nickname}</span>`:''}${d.deckType?`<span style="margin-left:5px;font-size:11px;color:var(--text2)">[${d.deckType}]</span>`:''}
+          <div style="margin-top:3px;display:flex;gap:3px">${pipsHTML(d.colors)}</div>
+        </div>`).join('')}</div>
+      </div>`;
+    });
+    bktDL.innerHTML=html;
+  }
+
+  const wl=document.getElementById('wishList');
+  if(!wishes.length){wl.innerHTML='<div class="empty-state">No wishlist entries yet.</div>';}
+  else{
+    const PLBL={high:'High',med:'Medium',low:'Low'};const PCLS={high:'badge-high',med:'badge-med',low:'badge-low'};
+    const sorted=[...wishes].sort((a,b)=>{const o={high:0,med:1,low:2};return o[a.priority]-o[b.priority];});
+    wl.innerHTML=`<table class="dtable"><thead><tr>
+      <th style="width:26%">Commander</th><th style="width:16%">Concept</th><th style="width:12%">Colors</th>
+      <th style="width:14%">Type / theme</th><th style="width:10%">Priority</th><th style="width:14%"></th>
+    </tr></thead><tbody>${sorted.map(w=>{
+      const url='https://edhrec.com/commanders/'+autoSlug(w.commander);
+      return`<tr>
+        <td style="font-weight:500;white-space:normal">${w.commander}${w.notes?`<div style="font-size:11px;color:var(--text2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${w.notes}</div>`:''}</td>
+        <td style="color:var(--text2)">${w.nickname||'—'}</td>
+        <td><div class="pips-display">${pipsHTML(w.colors)}</div></td>
+        <td>${w.deckType?`<span class="deck-type-tag">${w.deckType}</span>`:'<span style="color:var(--text3);font-size:12px">—</span>'}</td>
+        <td><span class="badge ${PCLS[w.priority]}">${PLBL[w.priority]}</span></td>
+        <td style="white-space:nowrap">
+          <button class="icon-btn promote" onclick="promoteWish(${w.id})" title="Mark as built"><i class="ti ti-check"></i></button>
+          <a href="${url}" target="_blank" rel="noopener" style="color:var(--info-text);font-size:13px;margin:0 2px"><i class="ti ti-external-link"></i></a>
+          <button class="icon-btn del" onclick="deleteWish(${w.id})" title="Remove"><i class="ti ti-trash"></i></button>
+        </td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+  }
+
+  const pg=document.getElementById('pieGrid');
+  pg.innerHTML=ALL_COMBOS.map(combo=>{
+    const have=ownedKeys.has(combo.key);const wishing=!have&&wishKeys.has(combo.key);
+    const mainC=combo.colors[0];const bg=PIE_BG[mainC]||'#eee';const tc=PIE_TC[mainC]||'#333';
+    let extra='';let icon='';
+    if(have){icon='<i class="ti ti-check" style="font-size:10px"></i>';}
+    else if(wishing){extra='opacity:.65;border-style:dotted;';icon='<i class="ti ti-star" style="font-size:10px"></i>';}
+    else{extra='opacity:.3;border-style:dashed;';}
+    return`<div class="color-pill" style="background:${bg};color:${tc};border-color:${tc};${extra}" title="${have?'Built':wishing?'On wishlist':'Not yet planned'}: ${combo.label}">${combo.label} ${icon}</div>`;
+  }).join('');
+  const missing=ALL_COMBOS.filter(c=>!ownedKeys.has(c.key)&&!wishKeys.has(c.key));
+  const mc=document.getElementById('missingCard');
+  if(missing.length){mc.style.display='block';document.getElementById('missingList').innerHTML=missing.map(c=>`<span style="margin-right:14px">· ${c.label} (${c.key})</span>`).join('');}
+  else{mc.style.display='none';}
+}
+
+render();
+</script>
+</body>
+</html>

@@ -75,7 +75,7 @@
   .pip-R { background: #c73f2e; color: #fff; }
   .pip-G { background: #3a7a45; color: #fff; }
   .pip-C { background: #9c8fbf; color: #fff; }
-  .dtable { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+  .dtable { width: 100%; border-collapse: collapse; font-size: 13px; }
   .dtable th { text-align: left; padding: 6px 8px; color: var(--text2); font-weight: 500; border-bottom: 0.5px solid var(--border); white-space: nowrap; }
   .dtable td { padding: 6px 8px; border-bottom: 0.5px solid var(--border); vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .dtable td:last-child { overflow: visible; white-space: nowrap; }
   .dtable tr:last-child td { border-bottom: none; }
@@ -494,9 +494,9 @@ function render(){
   else{
     const sorted=[...decks].sort((a,b)=>(a.bracket||'9').localeCompare(b.bracket||'9')||a.commander.localeCompare(b.commander));
     dl.innerHTML=`<table class="dtable"><thead><tr>
-      <th style="width:19%">Commander</th><th style="width:12%">Nickname</th><th style="width:10%">Colors</th>
-      <th style="width:12%">Type / theme</th><th style="width:7%">Bracket</th>
-      <th style="width:9%">EDHREC</th><th style="width:9%">Archidekt</th><th style="width:10%"></th>
+      <th>Commander</th><th>Nickname</th><th>Colors</th>
+      <th>Type / theme</th><th>Bracket</th>
+      <th>EDHREC</th><th>Archidekt</th><th></th>
     </tr></thead><tbody>${sorted.map(d=>{
       const eurl=edhrecURL(d);const combo=ALL_COMBOS.find(c=>c.key===d.key);
       return`<tr>

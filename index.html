@@ -350,10 +350,19 @@ body{font-family:var(--font);background:var(--bg3);color:var(--text);min-height:
   <div id="panel-coverage" class="panel">
     <div class="card">
       <div class="slabel" style="margin-bottom:10px">Color pie coverage</div>
-      <div style="display:flex;gap:14px;font-size:12px;color:var(--text2);margin-bottom:12px;flex-wrap:wrap">
-        <span><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#3a7a45;margin-right:4px;vertical-align:middle"></span>Built</span>
-        <span><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#9c8fbf;opacity:.65;margin-right:4px;vertical-align:middle;border:1px dotted #555"></span>On wishlist</span>
-        <span><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#aaa;opacity:.3;margin-right:4px;vertical-align:middle;border:1px dashed #aaa"></span>Not planned</span>
+      <div style="display:flex;gap:12px;font-size:12px;color:var(--text2);margin-bottom:12px;flex-wrap:wrap;align-items:center">
+        <span style="display:flex;align-items:center;gap:5px">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:20px;border-radius:4px;background:#daf0de;border:2px solid #3b6d11;font-size:10px;color:#3b6d11;font-weight:600">✓</span>
+          Built
+        </span>
+        <span style="display:flex;align-items:center;gap:5px">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:20px;border-radius:4px;background:#ffffff;border:2px dashed #534ab7;font-size:10px;color:#534ab7">★</span>
+          On wishlist
+        </span>
+        <span style="display:flex;align-items:center;gap:5px">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:20px;border-radius:4px;background:#e8e6e2;border:1px solid #ccc;font-size:10px;color:#aaa"></span>
+          Not yet planned
+        </span>
       </div>
       <div class="pie-grid" id="pieGrid"></div>
     </div>
@@ -1361,11 +1370,22 @@ window.render = function render(){
     const cnt=deckCountByKey[combo.key]||0;
     const have=cnt>0;const wishing=!have&&wishKeys.has(combo.key);
     const mainC=combo.colors[0];const bg=PIE_BG[mainC]||'#eee';const tc=PIE_TC[mainC]||'#333';
-    let extra='';let icon='';
-    if(have){icon=cnt>1?`<span style="font-size:10px;font-weight:700;background:rgba(0,0,0,0.18);border-radius:8px;padding:0 4px">${cnt}</span>`:'<i class="ti ti-check" style="font-size:10px"></i>';}
-    else if(wishing){extra='opacity:.65;border-style:dotted;';icon='<i class="ti ti-star" style="font-size:10px"></i>';}
-    else{extra='opacity:.3;border-style:dashed;';}
-    return`<div class="color-pill" style="background:${bg};color:${tc};border-color:${tc};${extra}" title="${have?(cnt>1?cnt+' decks built':'Built'):wishing?'On wishlist':'Not yet planned'}: ${combo.label}">${combo.label} ${icon}</div>`;
+    let style='';let icon='';let label=combo.label;
+    if(have){
+      // Built: full MTG color, solid, with checkmark or count badge
+      style=`background:${bg};color:${tc};border:2px solid ${tc};font-weight:600;`;
+      icon=cnt>1
+        ?` <span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:${tc};color:${bg};font-size:9px;font-weight:700;vertical-align:middle">${cnt}</span>`
+        :` <span style="color:${tc};font-size:11px">✓</span>`;
+    } else if(wishing){
+      // Wishlist: white bg, colored border, star
+      style=`background:#ffffff;color:${tc};border:2px dashed ${tc};opacity:.85;`;
+      icon=` <span style="font-size:10px">★</span>`;
+    } else {
+      // Not planned: grey, muted
+      style=`background:#e8e6e2;color:#aaa;border:1px solid #ccc;`;
+    }
+    return`<div class="color-pill" style="${style}" title="${have?(cnt>1?cnt+' decks built':'Built'):wishing?'On wishlist':'Not yet planned'}: ${combo.label}">${label}${icon}</div>`;
   }).join('');
   const missing=ALL_COMBOS.filter(c=>!ownedKeys.has(c.key)&&!wishKeys.has(c.key));
   const mc=document.getElementById('missingCard');

@@ -264,6 +264,7 @@ body{font-family:var(--font);background:var(--bg3);color:var(--text);min-height:
             <option value="2">2 — Core</option>
             <option value="3">3 — Upgraded</option>
             <option value="4">4 — Optimized</option>
+            <option value="4.5">4.5 — Optimized+</option>
             <option value="5">5 — cEDH</option>
           </select>
         </div>
@@ -450,6 +451,7 @@ body{font-family:var(--font);background:var(--bg3);color:var(--text);min-height:
           <option value="2">2 — Core</option>
           <option value="3">3 — Upgraded</option>
           <option value="4">4 — Optimized</option>
+          <option value="4.5">4.5 — Optimized+</option>
           <option value="5">5 — cEDH</option>
         </select>
       </div>
@@ -768,6 +770,7 @@ const BKT_CFG={
   '2':{label:'2 — Core',bg:'#eaf3de',tc:'#27500a',bar:'#97c459'},
   '3':{label:'3 — Upgraded',bg:'#faeeda',tc:'#633806',bar:'#ef9f27'},
   '4':{label:'4 — Optimized',bg:'#faece7',tc:'#712b13',bar:'#f0997b'},
+  '4.5':{label:'4.5 — Optimized+',bg:'#fde8e0',tc:'#5c1a08',bar:'#e8836b'},
   '5':{label:'5 — cEDH',bg:'#fcebeb',tc:'#791f1f',bar:'#e24b4a'},
   '':{label:'Unknown',bg:'#f1efe8',tc:'#444441',bar:'#b4b2a9'},
 };
@@ -1290,21 +1293,21 @@ window.render = function render(){
   }
 
   // Brackets
-  const bktCounts={'1':0,'2':0,'3':0,'4':0,'5':0,'':0};
+  const bktCounts={'1':0,'2':0,'3':0,'4':0,'4.5':0,'5':0,'':0};
   decks.forEach(d=>bktCounts[d.bracket||'']++);
   const maxCount=Math.max(1,...Object.values(bktCounts));
-  document.getElementById('bktBar').innerHTML=['1','2','3','4','5',''].map(b=>{
+  document.getElementById('bktBar').innerHTML=['1','2','3','4','4.5','5',''].map(b=>{
     const cfg=BKT_CFG[b];const cnt=bktCounts[b];const pct=Math.round((cnt/maxCount)*64);
     return`<div class="bkt-col"><div class="bkt-bar-num">${cnt}</div><div class="bkt-bar-fill" style="height:${pct+4}px;background:${cfg.bar}"></div><div class="bkt-bar-lbl">${b?'B'+b:'?'}</div></div>`;
   }).join('');
-  document.getElementById('bktLegend').innerHTML=['1','2','3','4','5'].map(b=>{
+  document.getElementById('bktLegend').innerHTML=['1','2','3','4','4.5','5'].map(b=>{
     const cfg=BKT_CFG[b];return`<span style="font-size:12px;padding:3px 9px;border-radius:var(--radius);background:${cfg.bg};color:${cfg.tc}">${cfg.label}</span>`;
   }).join('');
   const bktDL=document.getElementById('bktDeckList');
   if(!decks.length){bktDL.innerHTML='<div class="empty-state">No decks yet.</div>';}
   else{
     let html='';
-    ['1','2','3','4','5',''].forEach(b=>{
+    ['1','2','3','4','4.5','5',''].forEach(b=>{
       const group=decks.filter(d=>(d.bracket||'')===b);if(!group.length)return;
       const cfg=BKT_CFG[b];
       html+=`<div style="margin-bottom:14px">

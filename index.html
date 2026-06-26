@@ -1,143 +1,197 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<style id="icon-fallback">
-/* Inline icon replacements - no CDN dependency */
-.ti { font-style: normal; font-weight: normal; display: inline-block; line-height: 1; }
-.ti-edit::before { content: "✎"; }
-.ti-trash::before { content: "🗑"; font-size: 0.9em; }
-.ti-check::before { content: "✓"; font-weight: bold; }
-.ti-x::before { content: "✕"; }
-.ti-plus::before { content: "+"; font-weight: bold; }
-.ti-star::before { content: "★"; }
-.ti-cards::before { content: "⊞"; }
-.ti-chart-bar::before { content: "▦"; }
-.ti-palette::before { content: "◉"; }
-.ti-external-link::before { content: "↗"; }
-</style>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Commander Deck Tracker</title>
-
+<style id="icon-fallback">
+.ti{font-style:normal;display:inline-block;line-height:1}
+.ti-edit::before{content:"✎"}.ti-trash::before{content:"🗑";font-size:.9em}
+.ti-check::before{content:"✓";font-weight:bold}.ti-x::before{content:"✕"}
+.ti-plus::before{content:"+"}.ti-star::before{content:"★"}
+.ti-cards::before{content:"⊞"}.ti-chart-bar::before{content:"▦"}
+.ti-palette::before{content:"◉"}.ti-external-link::before{content:"↗"}
+.ti-logout::before{content:"⇥"}.ti-users::before{content:"◎"}
+.ti-share::before{content:"⤴"}.ti-eye::before{content:"◉"}
+</style>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg: #ffffff; --bg2: #f5f5f2; --bg3: #ebebea;
-    --text: #1a1a18; --text2: #6b6b68; --text3: #9e9e9a;
-    --border: rgba(0,0,0,0.12); --border2: rgba(0,0,0,0.22);
-    --info-bg: #e6f1fb; --info-text: #0c447c; --info-border: rgba(24,95,165,0.3);
-    --danger-bg: #fcebeb; --danger-text: #791f1f;
-    --success-bg: #eaf3de; --success-text: #27500a;
-    --radius: 8px; --radius-lg: 12px;
-    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #1e1e1c; --bg2: #2a2a28; --bg3: #333330;
-      --text: #e8e8e4; --text2: #9e9e9a; --text3: #6b6b68;
-      --border: rgba(255,255,255,0.1); --border2: rgba(255,255,255,0.2);
-      --info-bg: #0c2a44; --info-text: #85b7eb;
-      --danger-bg: #2d1010; --danger-text: #f09595;
-      --success-bg: #122008; --success-text: #97c459;
-    }
-  }
-  body { font-family: var(--font); background: var(--bg3); color: var(--text); min-height: 100vh; }
-  .container { max-width: 900px; margin: 0 auto; padding: 1.5rem 1rem; }
-  h1 { font-size: 22px; font-weight: 500; margin-bottom: 4px; }
-  .sub { font-size: 13px; color: var(--text2); margin-bottom: 1.5rem; }
-  .stats-row { display: flex; gap: 8px; margin-bottom: 1.25rem; flex-wrap: wrap; }
-  .stat-card { flex: 1; min-width: 72px; background: var(--bg); border-radius: var(--radius); padding: .65rem .75rem; text-align: center; border: 0.5px solid var(--border); }
-  .stat-num { font-size: 22px; font-weight: 500; }
-  .stat-lbl { font-size: 11px; color: var(--text2); margin-top: 2px; }
-  .tabs { display: flex; border-bottom: 0.5px solid var(--border); margin-bottom: 1.25rem; gap: 0; }
-  .tab { padding: 8px 16px; font-size: 14px; cursor: pointer; border: none; background: none; color: var(--text2); border-bottom: 2px solid transparent; margin-bottom: -0.5px; font-family: var(--font); }
-  .tab.active { color: var(--text); font-weight: 500; border-bottom-color: var(--text); }
-  .tab:hover:not(.active) { color: var(--text); }
-  .panel { display: none; } .panel.active { display: block; }
-  .card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin-bottom: 1rem; }
-  .slabel { font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .04em; }
-  .fg { display: grid; gap: 10px; margin-bottom: 10px; }
-  .fg2 { grid-template-columns: 1fr 1fr; }
-  .fg3 { grid-template-columns: 1fr 1fr 1fr; }
-  .finput, .fsel, .ftxt { width: 100%; padding: 8px 10px; border-radius: var(--radius); border: 0.5px solid var(--border2); background: var(--bg2); color: var(--text); font-size: 13px; font-family: var(--font); }
-  .finput:focus, .fsel:focus, .ftxt:focus { outline: none; border-color: #378add; }
-  .ftxt { resize: vertical; min-height: 52px; }
-  .add-btn { background: var(--bg2); border: 0.5px solid var(--border2); border-radius: var(--radius); padding: 8px 16px; font-size: 14px; cursor: pointer; color: var(--text); width: 100%; font-family: var(--font); }
-  .add-btn:hover { background: var(--bg3); }
-  .colors-row { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
-  .pip { width: 27px; height: 27px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; transition: transform .1s, opacity .1s; }
-  .pip:hover { transform: scale(1.1); }
-  .pip.sel { border-color: #fff; box-shadow: 0 0 0 2px #888; transform: scale(1.08); }
-  .pip.unsel { opacity: .35; }
-  .pip-W { background: #f5f0d8; color: #6b5d2f; }
-  .pip-U { background: #3a7ebf; color: #fff; }
-  .pip-B { background: #2c2c2c; color: #e0d7c6; }
-  .pip-R { background: #c73f2e; color: #fff; }
-  .pip-G { background: #3a7a45; color: #fff; }
-  .pip-C { background: #9c8fbf; color: #fff; }
-  .dtable { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .dtable th { text-align: left; padding: 6px 8px; color: var(--text2); font-weight: 500; border-bottom: 0.5px solid var(--border); white-space: nowrap; }
-  .dtable td { padding: 6px 8px; border-bottom: 0.5px solid var(--border); vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .dtable td:last-child { overflow: visible; white-space: nowrap; }
-  .dtable tr:last-child td { border-bottom: none; }
-  .dtable a { color: var(--info-text); text-decoration: none; font-size: 12px; }
-  .dtable a:hover { text-decoration: underline; }
-  .icon-btn { background: none; border: none; cursor: pointer; color: var(--text2); padding: 2px 4px; border-radius: 4px; font-size: 15px; line-height: 1; }
-  .icon-btn.edit:hover { color: var(--info-text); }
-  .icon-btn.del:hover { color: var(--danger-text); }
-  .icon-btn.promote:hover { color: var(--success-text); }
-  .pips-display { display: flex; gap: 3px; flex-wrap: wrap; }
-  .mpip { width: 15px; height: 15px; border-radius: 50%; font-size: 8px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  .mpip-W { background: #f5f0d8; color: #6b5d2f; border: 1px solid #c8b87a; }
-  .mpip-U { background: #3a7ebf; color: #fff; }
-  .mpip-B { background: #2c2c2c; color: #e0d7c6; border: 1px solid #555; }
-  .mpip-R { background: #c73f2e; color: #fff; }
-  .mpip-G { background: #3a7a45; color: #fff; }
-  .mpip-C { background: #9c8fbf; color: #fff; }
-  .bkt-badge { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; font-size: 11px; font-weight: 700; border: 1.5px solid; }
-  .deck-type-tag { font-size: 11px; color: var(--text2); background: var(--bg2); border-radius: var(--radius); padding: 1px 6px; border: 0.5px solid var(--border); }
-  .badge { display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: var(--radius); font-weight: 500; }
-  .badge-high { background: #faeeda; color: #633806; }
-  .badge-med { background: #e6f1fb; color: #0c447c; }
-  .badge-low { background: #f1efe8; color: #444441; }
-  .pie-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 8px; margin-bottom: 1rem; }
-  .color-pill { border-radius: var(--radius); padding: 5px 6px; font-size: 11px; font-weight: 500; text-align: center; border: 0.5px solid transparent; }
-  .bkt-bar { display: flex; gap: 8px; align-items: flex-end; height: 80px; margin-bottom: 8px; }
-  .bkt-col { display: flex; flex-direction: column; align-items: center; flex: 1; gap: 4px; }
-  .bkt-bar-fill { width: 100%; border-radius: 4px 4px 0 0; min-height: 4px; }
-  .bkt-bar-lbl { font-size: 11px; color: var(--text2); }
-  .bkt-bar-num { font-size: 13px; font-weight: 500; }
-  .empty-state { color: var(--text2); font-size: 13px; padding: 1rem 0; text-align: center; }
-  .err { font-size: 12px; color: var(--danger-text); margin-top: 4px; }
-  .modal-overlay { display: none; padding: 2rem 1rem; }
-  .modal-overlay.open { display: block; }
-  .modal { background: var(--bg); border: 0.5px solid var(--border2); border-radius: var(--radius-lg); padding: 1.25rem; width: 100%; max-width: 580px; margin: 0 auto; }
-  .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; border-bottom: 0.5px solid var(--border); padding-bottom: .75rem; }
-  .modal-title { font-size: 15px; font-weight: 500; }
-  .modal-actions { display: flex; gap: 8px; margin-top: 1rem; }
-  .btn-save { background: var(--info-bg); color: var(--info-text); border: 0.5px solid var(--info-border); border-radius: var(--radius); padding: 8px 18px; font-size: 13px; cursor: pointer; font-weight: 500; font-family: var(--font); }
-  .btn-save:hover { opacity: .85; }
-  .btn-cancel { background: var(--bg2); color: var(--text2); border: 0.5px solid var(--border2); border-radius: var(--radius); padding: 8px 18px; font-size: 13px; cursor: pointer; font-family: var(--font); }
-  .btn-cancel:hover { background: var(--bg3); }
-  .io-bar{display:flex;gap:8px;justify-content:flex-end;margin-bottom:1rem;flex-wrap:wrap;align-items:center;}
-  .io-btn{padding:6px 14px;font-size:13px;border-radius:var(--radius);border:0.5px solid var(--border2);background:var(--bg2);color:var(--text);cursor:pointer;font-family:var(--font);}
-  .io-btn:hover{background:var(--bg3);}
-  .io-btn.primary{background:var(--info-bg);color:var(--info-text);border-color:var(--info-border);}
-  .io-notice{font-size:12px;color:var(--text2);}
-  .io-modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;align-items:center;justify-content:center;}
-  .io-modal-backdrop.open{display:flex;}
-  .io-modal{background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius-lg);padding:1.25rem;width:100%;max-width:520px;margin:1rem;}
-  .io-textarea{width:100%;min-height:140px;padding:8px 10px;border-radius:var(--radius);border:0.5px solid var(--border2);background:var(--bg2);color:var(--text);font-size:12px;font-family:monospace;resize:vertical;}
-  @media (max-width: 600px) {
-    .fg2, .fg3 { grid-template-columns: 1fr; }
-    .tabs { overflow-x: auto; }
-    .tab { white-space: nowrap; padding: 8px 12px; font-size: 13px; }
-  }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#ffffff;--bg2:#f5f5f2;--bg3:#ebebea;
+  --text:#1a1a18;--text2:#6b6b68;--text3:#9e9e9a;
+  --border:rgba(0,0,0,0.12);--border2:rgba(0,0,0,0.22);
+  --info-bg:#e6f1fb;--info-text:#0c447c;--info-border:rgba(24,95,165,0.3);
+  --danger-bg:#fcebeb;--danger-text:#791f1f;
+  --success-bg:#eaf3de;--success-text:#27500a;
+  --radius:8px;--radius-lg:12px;
+  --font:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#1e1e1c;--bg2:#2a2a28;--bg3:#333330;
+  --text:#e8e8e4;--text2:#9e9e9a;--text3:#6b6b68;
+  --border:rgba(255,255,255,0.1);--border2:rgba(255,255,255,0.2);
+  --info-bg:#0c2a44;--info-text:#85b7eb;
+  --danger-bg:#2d1010;--danger-text:#f09595;
+  --success-bg:#122008;--success-text:#97c459;
+}}
+body{font-family:var(--font);background:var(--bg3);color:var(--text);min-height:100vh}
+.container{max-width:960px;margin:0 auto;padding:1.5rem 1rem}
+
+/* Auth screen */
+#authScreen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;text-align:center}
+#authScreen h1{font-size:28px;font-weight:500;margin-bottom:8px}
+#authScreen p{color:var(--text2);font-size:15px;margin-bottom:2rem;max-width:400px}
+.google-btn{display:flex;align-items:center;gap:12px;background:#fff;color:#3c3c3c;border:1px solid #ddd;border-radius:8px;padding:12px 24px;font-size:15px;font-weight:500;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.12);transition:box-shadow .2s}
+.google-btn:hover{box-shadow:0 2px 8px rgba(0,0,0,0.18)}
+.google-btn svg{width:20px;height:20px;flex-shrink:0}
+#appScreen{display:none}
+
+/* Top bar */
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:10px}
+.topbar-left h1{font-size:20px;font-weight:500}
+.topbar-left p{font-size:13px;color:var(--text2)}
+.topbar-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.user-chip{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text2);background:var(--bg2);border:0.5px solid var(--border);border-radius:20px;padding:4px 12px 4px 6px}
+.user-avatar{width:24px;height:24px;border-radius:50%;object-fit:cover}
+.user-avatar-placeholder{width:24px;height:24px;border-radius:50%;background:var(--info-bg);color:var(--info-text);font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center}
+
+/* Stats */
+.stats-row{display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap}
+.stat-card{flex:1;min-width:72px;background:var(--bg);border-radius:var(--radius);padding:.65rem .75rem;text-align:center;border:0.5px solid var(--border)}
+.stat-num{font-size:20px;font-weight:500}
+.stat-lbl{font-size:11px;color:var(--text2);margin-top:2px}
+
+/* IO bar */
+.io-bar{display:flex;gap:8px;justify-content:flex-end;margin-bottom:1rem;flex-wrap:wrap;align-items:center}
+.io-notice{font-size:12px;color:var(--text2)}
+.io-btn{padding:6px 14px;font-size:13px;border-radius:var(--radius);border:0.5px solid var(--border2);background:var(--bg2);color:var(--text);cursor:pointer;font-family:var(--font)}
+.io-btn:hover{background:var(--bg3)}
+.io-btn.primary{background:var(--info-bg);color:var(--info-text);border-color:var(--info-border)}
+
+/* Sync status */
+.sync-bar{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);margin-bottom:1rem}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--text3)}
+.sync-dot.ok{background:#4caf50}
+.sync-dot.saving{background:#ff9800;animation:pulse 1s infinite}
+.sync-dot.err{background:#f44336}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* Tabs */
+.tabs{display:flex;border-bottom:0.5px solid var(--border);margin-bottom:1.25rem;overflow-x:auto}
+.tab{padding:8px 16px;font-size:14px;cursor:pointer;border:none;background:none;color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-0.5px;font-family:var(--font);white-space:nowrap}
+.tab.active{color:var(--text);font-weight:500;border-bottom-color:var(--text)}
+.tab:hover:not(.active){color:var(--text)}
+.panel{display:none}.panel.active{display:block}
+
+/* Cards & forms */
+.card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:1rem}
+.slabel{font-size:12px;font-weight:500;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em}
+.fg{display:grid;gap:10px;margin-bottom:10px}
+.fg2{grid-template-columns:1fr 1fr}.fg3{grid-template-columns:1fr 1fr 1fr}
+.finput,.fsel,.ftxt{width:100%;padding:8px 10px;border-radius:var(--radius);border:0.5px solid var(--border2);background:var(--bg2);color:var(--text);font-size:13px;font-family:var(--font)}
+.finput:focus,.fsel:focus,.ftxt:focus{outline:none;border-color:#378add}
+.ftxt{resize:vertical;min-height:52px}
+.add-btn{background:var(--bg2);border:0.5px solid var(--border2);border-radius:var(--radius);padding:8px 16px;font-size:14px;cursor:pointer;color:var(--text);width:100%;font-family:var(--font)}
+.add-btn:hover{background:var(--bg3)}
+.colors-row{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+.pip{width:27px;height:27px;border-radius:50%;border:2px solid transparent;cursor:pointer;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;transition:transform .1s,opacity .1s}
+.pip:hover{transform:scale(1.1)}.pip.sel{border-color:#fff;box-shadow:0 0 0 2px #888;transform:scale(1.08)}.pip.unsel{opacity:.35}
+.pip-W{background:#f5f0d8;color:#6b5d2f}.pip-U{background:#3a7ebf;color:#fff}
+.pip-B{background:#2c2c2c;color:#e0d7c6}.pip-R{background:#c73f2e;color:#fff}
+.pip-G{background:#3a7a45;color:#fff}.pip-C{background:#9c8fbf;color:#fff}
+
+/* Table */
+.dtable{width:100%;border-collapse:collapse;font-size:13px}
+.dtable th{text-align:left;padding:6px 8px;color:var(--text2);font-weight:500;border-bottom:0.5px solid var(--border);white-space:nowrap}
+.dtable td{padding:6px 8px;border-bottom:0.5px solid var(--border);vertical-align:middle;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dtable td:last-child{overflow:visible;white-space:nowrap}
+.dtable tr:last-child td{border-bottom:none}
+.dtable a{color:var(--info-text);text-decoration:none;font-size:12px}
+.dtable a:hover{text-decoration:underline}
+.icon-btn{background:none;border:none;cursor:pointer;color:var(--text2);padding:2px 4px;border-radius:4px;font-size:15px;line-height:1}
+.icon-btn.edit:hover{color:var(--info-text)}.icon-btn.del:hover{color:var(--danger-text)}.icon-btn.promote:hover{color:var(--success-text)}
+.pips-display{display:flex;gap:3px;flex-wrap:wrap}
+.mpip{width:15px;height:15px;border-radius:50%;font-size:8px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.mpip-W{background:#f5f0d8;color:#6b5d2f;border:1px solid #c8b87a}.mpip-U{background:#3a7ebf;color:#fff}
+.mpip-B{background:#2c2c2c;color:#e0d7c6;border:1px solid #555}.mpip-R{background:#c73f2e;color:#fff}
+.mpip-G{background:#3a7a45;color:#fff}.mpip-C{background:#9c8fbf;color:#fff}
+.bkt-badge{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-size:11px;font-weight:700;border:1.5px solid}
+.deck-type-tag{font-size:11px;color:var(--text2);background:var(--bg2);border-radius:var(--radius);padding:1px 6px;border:0.5px solid var(--border)}
+.badge{display:inline-block;font-size:11px;padding:2px 7px;border-radius:var(--radius);font-weight:500}
+.badge-high{background:#faeeda;color:#633806}.badge-med{background:#e6f1fb;color:#0c447c}.badge-low{background:#f1efe8;color:#444441}
+.empty-state{color:var(--text2);font-size:13px;padding:1rem 0;text-align:center}
+.err{font-size:12px;color:var(--danger-text);margin-top:4px}
+
+/* Brackets */
+.bkt-bar{display:flex;gap:8px;align-items:flex-end;height:80px;margin-bottom:8px}
+.bkt-col{display:flex;flex-direction:column;align-items:center;flex:1;gap:4px}
+.bkt-bar-fill{width:100%;border-radius:4px 4px 0 0;min-height:4px}
+.bkt-bar-lbl{font-size:11px;color:var(--text2)}
+.bkt-bar-num{font-size:13px;font-weight:500}
+
+/* Coverage */
+.pie-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:8px;margin-bottom:1rem}
+.color-pill{border-radius:var(--radius);padding:5px 6px;font-size:11px;font-weight:500;text-align:center;border:0.5px solid transparent}
+
+/* Share / Friends */
+.friend-card{background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px}
+.friend-info{font-size:13px}
+.friend-name{font-weight:500}
+.friend-sub{font-size:12px;color:var(--text2);margin-top:2px}
+.share-link{background:var(--bg2);border:0.5px solid var(--border2);border-radius:var(--radius);padding:8px 12px;font-size:12px;font-family:monospace;word-break:break-all;color:var(--text2);margin:8px 0;cursor:pointer}
+.share-link:hover{background:var(--bg3)}
+
+/* Modals */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:100;align-items:flex-start;justify-content:center;padding:2rem 1rem;overflow-y:auto}
+.modal-overlay.open{display:flex}
+.modal{background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius-lg);padding:1.25rem;width:100%;max-width:580px;margin:auto}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;border-bottom:0.5px solid var(--border);padding-bottom:.75rem}
+.modal-title{font-size:15px;font-weight:500}
+.modal-actions{display:flex;gap:8px;margin-top:1rem}
+.btn-save{background:var(--info-bg);color:var(--info-text);border:0.5px solid var(--info-border);border-radius:var(--radius);padding:8px 18px;font-size:13px;cursor:pointer;font-weight:500;font-family:var(--font)}
+.btn-save:hover{opacity:.85}
+.btn-cancel{background:var(--bg2);color:var(--text2);border:0.5px solid var(--border2);border-radius:var(--radius);padding:8px 18px;font-size:13px;cursor:pointer;font-family:var(--font)}
+.btn-cancel:hover{background:var(--bg3)}
+.io-textarea{width:100%;min-height:140px;padding:8px 10px;border-radius:var(--radius);border:0.5px solid var(--border2);background:var(--bg2);color:var(--text);font-size:12px;font-family:monospace;resize:vertical}
+.io-modal{background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius-lg);padding:1.25rem;width:100%;max-width:520px;margin:auto}
+
+@media(max-width:600px){.fg2,.fg3{grid-template-columns:1fr}.tabs{overflow-x:auto}.tab{white-space:nowrap;padding:8px 12px;font-size:13px}}
 </style>
 </head>
 <body>
-<div class="container">
+
+<!-- AUTH SCREEN -->
+<div id="authScreen" class="container">
+  <div style="font-size:48px;margin-bottom:16px">⚔️</div>
   <h1>Commander Deck Tracker</h1>
-  <p class="sub">Track your Commander decks, power levels, and ideas in the pipeline.</p>
+  <p>Track your Commander decks, wishlist, power levels, and share your collection with friends. Sign in to sync across all your devices.</p>
+  <button class="google-btn" onclick="signIn()">
+    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+    </svg>
+    Sign in with Google
+  </button>
+  <p style="margin-top:1rem;font-size:12px;color:var(--text3)">Your data is private and only accessible to you unless you choose to share it.</p>
+</div>
+
+<!-- APP SCREEN -->
+<div id="appScreen" class="container">
+  <div class="topbar">
+    <div class="topbar-left">
+      <h1>⚔️ Commander Deck Tracker</h1>
+    </div>
+    <div class="topbar-right">
+      <div class="user-chip">
+        <img id="userAvatar" class="user-avatar" src="" alt="" style="display:none">
+        <div id="userAvatarPlaceholder" class="user-avatar-placeholder">?</div>
+        <span id="userName" style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+      </div>
+      <button class="io-btn" onclick="signOut()" title="Sign out"><i class="ti ti-logout"></i> Sign out</button>
+    </div>
+  </div>
 
   <div class="stats-row">
     <div class="stat-card"><div class="stat-num" id="statTotal">0</div><div class="stat-lbl">Built decks</div></div>
@@ -147,10 +201,12 @@
     <div class="stat-card"><div class="stat-num" id="statArchi">0</div><div class="stat-lbl">Deck Links</div></div>
   </div>
 
-  <div class="io-bar">
-    <span class="io-notice">Data is stored in this browser. Use Export/Import to move between devices.</span>
-    <button class="io-btn" onclick="openExport()">✦ Export data</button>
-    <button class="io-btn primary" onclick="openImport()">↓ Import data</button>
+  <div class="sync-bar">
+    <div class="sync-dot" id="syncDot"></div>
+    <span id="syncStatus">Connecting...</span>
+    <span style="flex:1"></span>
+    <button class="io-btn" onclick="openExport()" style="padding:4px 10px;font-size:12px">✦ Export</button>
+    <button class="io-btn primary" onclick="openImport()" style="padding:4px 10px;font-size:12px">↓ Import</button>
   </div>
 
   <div class="tabs">
@@ -158,6 +214,7 @@
     <button class="tab" onclick="switchTab('brackets',this)"><i class="ti ti-chart-bar"></i> Brackets</button>
     <button class="tab" onclick="switchTab('wishlist',this)"><i class="ti ti-star"></i> Wishlist</button>
     <button class="tab" onclick="switchTab('coverage',this)"><i class="ti ti-palette"></i> Coverage</button>
+    <button class="tab" onclick="switchTab('friends',this)"><i class="ti ti-users"></i> Friends</button>
   </div>
 
   <!-- DECKS PANEL -->
@@ -182,7 +239,7 @@
         </div>
         <div>
           <div class="slabel">Deck type / theme</div>
-          <input class="finput" id="dType" placeholder="e.g. Tokens, Lifegain, Combo...">
+          <input class="finput" id="dType" placeholder="e.g. Tokens, Lifegain...">
         </div>
         <div>
           <div class="slabel">Color identity</div>
@@ -222,10 +279,7 @@
       <div class="bkt-bar" id="bktBar"></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px" id="bktLegend"></div>
     </div>
-    <div class="card">
-      <div class="slabel" style="margin-bottom:10px">Decks by bracket</div>
-      <div id="bktDeckList"></div>
-    </div>
+    <div class="card"><div class="slabel" style="margin-bottom:10px">Decks by bracket</div><div id="bktDeckList"></div></div>
   </div>
 
   <!-- WISHLIST PANEL -->
@@ -246,30 +300,20 @@
         <div class="pip pip-C unsel" data-c="C" onclick="toggleColor(this,'wish')" title="Colorless">∅</div>
       </div>
       <div class="fg fg2" style="margin-bottom:10px">
-        <div>
-          <div class="slabel">Priority</div>
+        <div><div class="slabel">Priority</div>
           <select class="fsel" id="wPriority">
             <option value="high">High — building soon</option>
             <option value="med" selected>Medium — on the radar</option>
             <option value="low">Low — someday maybe</option>
           </select>
         </div>
-        <div>
-          <div class="slabel">Deck type / theme</div>
-          <input class="finput" id="wType" placeholder="e.g. Tokens, Reanimator...">
-        </div>
+        <div><div class="slabel">Deck type / theme</div><input class="finput" id="wType" placeholder="e.g. Tokens, Reanimator..."></div>
       </div>
-      <div style="margin-bottom:10px">
-        <div class="slabel">Notes (optional)</div>
-        <textarea class="ftxt" id="wNotes" placeholder="Theme ideas, key cards, what you're excited about..."></textarea>
-      </div>
+      <div style="margin-bottom:10px"><div class="slabel">Notes (optional)</div><textarea class="ftxt" id="wNotes" placeholder="Theme ideas, key cards..."></textarea></div>
       <div id="wishErr" class="err" style="display:none"></div>
       <button class="add-btn" onclick="addWish()"><i class="ti ti-star"></i> Add to wishlist</button>
     </div>
-    <div class="card">
-      <div class="slabel" style="margin-bottom:10px">Deck ideas</div>
-      <div style="overflow-x:auto" id="wishList"></div>
-    </div>
+    <div class="card"><div class="slabel" style="margin-bottom:10px">Deck ideas</div><div style="overflow-x:auto" id="wishList"></div></div>
   </div>
 
   <!-- COVERAGE PANEL -->
@@ -279,31 +323,58 @@
       <div style="display:flex;gap:14px;font-size:12px;color:var(--text2);margin-bottom:12px;flex-wrap:wrap">
         <span><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#3a7a45;margin-right:4px;vertical-align:middle"></span>Built</span>
         <span><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#9c8fbf;opacity:.65;margin-right:4px;vertical-align:middle;border:1px dotted #555"></span>On wishlist</span>
-        <span><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#aaa;opacity:.3;margin-right:4px;vertical-align:middle;border:1px dashed #aaa"></span>Not yet planned</span>
+        <span><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#aaa;opacity:.3;margin-right:4px;vertical-align:middle;border:1px dashed #aaa"></span>Not planned</span>
       </div>
       <div class="pie-grid" id="pieGrid"></div>
     </div>
-    <div class="card" id="missingCard">
-      <div class="slabel" style="margin-bottom:6px">Not yet planned</div>
-      <div style="font-size:13px;color:var(--text2);line-height:1.9" id="missingList"></div>
+    <div class="card" id="missingCard"><div class="slabel" style="margin-bottom:6px">Not yet planned</div><div style="font-size:13px;color:var(--text2);line-height:1.9" id="missingList"></div></div>
+  </div>
+
+  <!-- FRIENDS PANEL -->
+  <div id="panel-friends" class="panel">
+    <div class="card">
+      <div class="slabel" style="margin-bottom:8px">Share your collection</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:12px">Share your deck list with friends so they can browse it. They don't need an account to view it.</p>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div class="share-link" id="shareLink" onclick="copyShareLink()" title="Click to copy">Loading your share link...</div>
+        <button class="io-btn" onclick="copyShareLink()"><i class="ti ti-share"></i> Copy link</button>
+      </div>
+      <div id="shareCopied" style="font-size:12px;color:var(--success-text);margin-top:6px;display:none">✓ Copied!</div>
+    </div>
+    <div class="card">
+      <div class="slabel" style="margin-bottom:8px">View a friend's collection</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:10px">Paste a friend's share link or their User ID to browse their decks.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input class="finput" id="friendInput" placeholder="Paste friend's share link or User ID" style="flex:1;min-width:200px">
+        <button class="io-btn primary" onclick="viewFriend()"><i class="ti ti-eye"></i> View their decks</button>
+      </div>
+      <div id="friendErr" class="err" style="display:none"></div>
+    </div>
+    <div id="friendView" style="display:none">
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div class="slabel" id="friendViewTitle">Friend's decks</div>
+          <button class="io-btn" onclick="closeFriendView()" style="padding:4px 10px;font-size:12px">✕ Close</button>
+        </div>
+        <div style="overflow-x:auto" id="friendDeckList"></div>
+      </div>
     </div>
   </div>
 </div>
 
 <!-- EDIT MODAL -->
-<div id="editModal" class="modal-overlay">
+<div id="editModal" class="modal-overlay" onclick="if(event.target===this)closeEdit()">
   <div class="modal">
     <div class="modal-header">
       <span class="modal-title" id="editModalTitle">Edit deck</span>
-      <button class="icon-btn" onclick="closeEdit()" aria-label="Close"><i class="ti ti-x"></i></button>
+      <button class="icon-btn" onclick="closeEdit()"><i class="ti ti-x"></i></button>
     </div>
     <div class="fg fg2">
       <div><div class="slabel">Commander name</div><input class="finput" id="eCmd" placeholder="Commander name"></div>
       <div><div class="slabel">Deck nickname</div><input class="finput" id="eNick" placeholder="Nickname (optional)"></div>
     </div>
     <div class="fg fg2">
-      <div>
-        <div class="slabel">Bracket</div>
+      <div><div class="slabel">Bracket</div>
         <select class="fsel" id="eBracket">
           <option value="">— Unknown —</option>
           <option value="1">1 — Exhibition</option>
@@ -313,13 +384,9 @@
           <option value="5">5 — cEDH</option>
         </select>
       </div>
-      <div>
-        <div class="slabel">Deck type / theme</div>
-        <input class="finput" id="eType" placeholder="e.g. Tokens, Lifegain, Combo...">
-      </div>
+      <div><div class="slabel">Deck type / theme</div><input class="finput" id="eType" placeholder="e.g. Tokens, Lifegain, Combo..."></div>
     </div>
-    <div style="margin-bottom:10px">
-      <div class="slabel">Color identity</div>
+    <div style="margin-bottom:10px"><div class="slabel">Color identity</div>
       <div class="colors-row" id="eColorPips">
         <div class="pip pip-W unsel" data-c="W" onclick="toggleColor(this,'edit')">W</div>
         <div class="pip pip-U unsel" data-c="U" onclick="toggleColor(this,'edit')">U</div>
@@ -333,17 +400,11 @@
       <div>
         <div class="slabel">EDHREC URL</div>
         <input class="finput" id="eEdhrec" placeholder="https://edhrec.com/commanders/...">
-        <div style="font-size:11px;color:var(--text2);margin-top:4px">Leave blank to auto-generate, or paste a specific page (e.g. /tokens, /lifegain)</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:4px">Leave blank to auto-generate, or paste a specific page (e.g. /tokens)</div>
       </div>
-      <div>
-        <div class="slabel">Deck link URL</div>
-        <input class="finput" id="eArchi" placeholder="https://archidekt.com/decks/... or any URL">
-      </div>
+      <div><div class="slabel">Deck link URL</div><input class="finput" id="eArchi" placeholder="https://archidekt.com/decks/..."></div>
     </div>
-    <div style="margin-top:8px;margin-bottom:4px">
-      <div class="slabel">Notes / description</div>
-      <textarea class="ftxt" id="eNotes" placeholder="Deck notes, strategy, key cards..."></textarea>
-    </div>
+    <div style="margin-top:8px;margin-bottom:4px"><div class="slabel">Notes / description</div><textarea class="ftxt" id="eNotes" placeholder="Deck notes, strategy, key cards..."></textarea></div>
     <div id="editErr" class="err" style="display:none"></div>
     <div class="modal-actions">
       <button class="btn-save" onclick="saveEdit()"><i class="ti ti-check"></i> Save changes</button>
@@ -352,7 +413,179 @@
   </div>
 </div>
 
+<!-- EXPORT MODAL -->
+<div id="exportModal" class="modal-overlay" onclick="if(event.target===this)closeExport()">
+  <div class="io-modal">
+    <div class="modal-header">
+      <span class="modal-title">Export data</span>
+      <button class="icon-btn" onclick="closeExport()"><i class="ti ti-x"></i></button>
+    </div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:10px">Copy this and save it as a backup, or use it to import into another account.</p>
+    <textarea class="io-textarea" id="exportText" readonly onclick="this.select()"></textarea>
+    <div class="modal-actions">
+      <button class="btn-save" onclick="copyExport()">Copy to clipboard</button>
+      <button class="btn-cancel" onclick="closeExport()">Close</button>
+    </div>
+    <div id="copyConfirm" style="font-size:12px;color:var(--success-text);margin-top:8px;display:none">✓ Copied!</div>
+  </div>
+</div>
+
+<!-- IMPORT MODAL -->
+<div id="importModal" class="modal-overlay" onclick="if(event.target===this)closeImport()">
+  <div class="io-modal">
+    <div class="modal-header">
+      <span class="modal-title">Import data</span>
+      <button class="icon-btn" onclick="closeImport()"><i class="ti ti-x"></i></button>
+    </div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:10px">Paste previously exported data below. <strong>This will replace all current data.</strong></p>
+    <textarea class="io-textarea" id="importText" placeholder="Paste exported data here..."></textarea>
+    <div id="importErr" class="err" style="display:none;margin-top:6px"></div>
+    <div class="modal-actions">
+      <button class="btn-save" onclick="doImport()">Import & replace</button>
+      <button class="btn-cancel" onclick="closeImport()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as fbSignOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js';
+import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAn8o3eEcfuGPyTjBHU1hhLVwine0ZYhSY",
+  authDomain: "mtg-commaner-deck-tracker.firebaseapp.com",
+  projectId: "mtg-commaner-deck-tracker",
+  storageBucket: "mtg-commaner-deck-tracker.firebasestorage.app",
+  messagingSenderId: "523072385856",
+  appId: "1:523072385856:web:b45229328bf2e1304080a5",
+  measurementId: "G-CLMMXVY7G3"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+let currentUser = null;
+let unsub = null;
+
+// Expose auth functions to global scope
+window.signIn = async () => {
+  try {
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
+  } catch(e) {
+    console.error('Sign in error', e);
+    alert('Sign in failed: ' + e.message);
+  }
+};
+
+window.signOut = async () => {
+  if(unsub) { unsub(); unsub = null; }
+  await fbSignOut(auth);
+};
+
+window.saveToFirebase = async () => {
+  if(!currentUser) return;
+  setSyncStatus('saving');
+  try {
+    await setDoc(doc(db, 'users', currentUser.uid), {
+      decks: window.decks,
+      wishes: window.wishes,
+      updatedAt: Date.now(),
+      displayName: currentUser.displayName || '',
+      photoURL: currentUser.photoURL || ''
+    });
+    setSyncStatus('ok');
+  } catch(e) {
+    console.error('Save error', e);
+    setSyncStatus('err');
+  }
+};
+
+window.viewFriendData = async (uid) => {
+  try {
+    const snap = await getDoc(doc(db, 'users', uid));
+    if(!snap.exists()) return null;
+    return snap.data();
+  } catch(e) {
+    return null;
+  }
+};
+
+function setSyncStatus(state) {
+  const dot = document.getElementById('syncDot');
+  const txt = document.getElementById('syncStatus');
+  dot.className = 'sync-dot ' + state;
+  txt.textContent = state === 'ok' ? 'Synced' : state === 'saving' ? 'Saving...' : 'Sync error';
+}
+
+onAuthStateChanged(auth, async (user) => {
+  if(user) {
+    currentUser = user;
+    document.getElementById('authScreen').style.display = 'none';
+    document.getElementById('appScreen').style.display = 'block';
+
+    // Set user info
+    document.getElementById('userName').textContent = user.displayName || user.email;
+    const avatar = document.getElementById('userAvatar');
+    const placeholder = document.getElementById('userAvatarPlaceholder');
+    if(user.photoURL) {
+      avatar.src = user.photoURL;
+      avatar.style.display = 'block';
+      placeholder.style.display = 'none';
+    } else {
+      placeholder.textContent = (user.displayName || user.email || '?')[0].toUpperCase();
+    }
+
+    // Set share link
+    document.getElementById('shareLink').textContent = window.location.href.split('?')[0] + '?view=' + user.uid;
+
+    // Subscribe to real-time updates
+    setSyncStatus('saving');
+    if(unsub) unsub();
+    unsub = onSnapshot(doc(db, 'users', user.uid), (snap) => {
+      if(snap.exists()) {
+        const data = snap.data();
+        window.decks = data.decks || [];
+        window.wishes = data.wishes || [];
+      } else {
+        window.decks = [];
+        window.wishes = [];
+      }
+      setSyncStatus('ok');
+      window.render();
+    }, (err) => {
+      console.error('Snapshot error', err);
+      setSyncStatus('err');
+    });
+
+    // Check if viewing someone else's profile
+    const params = new URLSearchParams(window.location.search);
+    const viewUid = params.get('view');
+    if(viewUid && viewUid !== user.uid) {
+      setTimeout(() => {
+        document.getElementById('friendInput').value = viewUid;
+        window.viewFriend();
+      }, 1000);
+    }
+
+  } else {
+    currentUser = null;
+    if(unsub) { unsub(); unsub = null; }
+    document.getElementById('authScreen').style.display = 'flex';
+    document.getElementById('appScreen').style.display = 'none';
+  }
+});
+</script>
+
 <script>
+// ── Data ─────────────────────────────────────────────────────────────────────
+window.decks = [];
+window.wishes = [];
+let selDeck=[], selWish=[], selEdit=[], editingId=null;
+
 const ALL_COMBOS=[
   {key:'W',label:'White',colors:['W']},{key:'U',label:'Blue',colors:['U']},{key:'B',label:'Black',colors:['B']},
   {key:'R',label:'Red',colors:['R']},{key:'G',label:'Green',colors:['G']},{key:'C',label:'Colorless',colors:['C']},
@@ -379,10 +612,6 @@ const BKT_CFG={
   '5':{label:'5 — cEDH',bg:'#fcebeb',tc:'#791f1f',bar:'#e24b4a'},
   '':{label:'Unknown',bg:'#f1efe8',tc:'#444441',bar:'#b4b2a9'},
 };
-
-let decks=[],wishes=[],selDeck=[],selWish=[],selEdit=[],editingId=null;
-try{decks=JSON.parse(localStorage.getItem('cmdDecks')||'[]');}catch(e){}
-try{wishes=JSON.parse(localStorage.getItem('cmdWishes')||'[]');}catch(e){}
 
 function switchTab(id,el){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -412,13 +641,17 @@ function pipsHTML(colors){return CO.filter(c=>colors.includes(c)).map(c=>`<div c
 function bktBadge(b){const cfg=BKT_CFG[b||''];return`<span class="bkt-badge" style="background:${cfg.bg};color:${cfg.tc};border-color:${cfg.tc}">${b?'B'+b:'?'}</span>`;}
 function edhrecURL(d){return d.edhrec||(d.commander?'https://edhrec.com/commanders/'+autoSlug(d.commander):'');}
 
+function save(){
+  if(window.saveToFirebase) window.saveToFirebase();
+}
+
 function addDeck(){
   const cmd=document.getElementById('cmdName').value.trim();
   const err=document.getElementById('deckErr');
   if(!cmd){err.textContent='Enter a commander name.';err.style.display='block';return;}
   if(!selDeck.length){err.textContent='Select at least one color.';err.style.display='block';return;}
   err.style.display='none';
-  decks.push({id:Date.now(),commander:cmd,nickname:document.getElementById('deckName').value.trim(),
+  window.decks.push({id:Date.now(),commander:cmd,nickname:document.getElementById('deckName').value.trim(),
     colors:[...selDeck],key:colorKey(selDeck),bracket:document.getElementById('dBracket').value,
     archi:document.getElementById('dArchi').value.trim(),edhrec:document.getElementById('dEdhrec').value.trim(),
     deckType:document.getElementById('dType').value.trim(),notes:''});
@@ -435,7 +668,7 @@ function addWish(){
   if(!cmd){err.textContent='Enter a commander name.';err.style.display='block';return;}
   if(!selWish.length){err.textContent='Select at least one color.';err.style.display='block';return;}
   err.style.display='none';
-  wishes.push({id:Date.now(),commander:cmd,nickname:document.getElementById('wDeckName').value.trim(),
+  window.wishes.push({id:Date.now(),commander:cmd,nickname:document.getElementById('wDeckName').value.trim(),
     colors:[...selWish],key:colorKey(selWish),notes:document.getElementById('wNotes').value.trim(),
     priority:document.getElementById('wPriority').value,deckType:document.getElementById('wType').value.trim()});
   save();
@@ -446,7 +679,7 @@ function addWish(){
 }
 
 function openEdit(id){
-  const d=decks.find(x=>x.id===id);if(!d)return;
+  const d=window.decks.find(x=>x.id===id);if(!d)return;
   editingId=id;
   document.getElementById('eCmd').value=d.commander;
   document.getElementById('eNick').value=d.nickname||'';
@@ -464,38 +697,113 @@ function openEdit(id){
   document.getElementById('editErr').style.display='none';
   document.getElementById('editModal').classList.add('open');
 }
-
 function closeEdit(){document.getElementById('editModal').classList.remove('open');editingId=null;selEdit=[];}
-function handleOverlayClick(e){if(e.target===document.getElementById('editModal'))closeEdit();}
-
 function saveEdit(){
   const cmd=document.getElementById('eCmd').value.trim();
   const err=document.getElementById('editErr');
   if(!cmd){err.textContent='Commander name is required.';err.style.display='block';return;}
   if(!selEdit.length){err.textContent='Select at least one color.';err.style.display='block';return;}
   err.style.display='none';
-  const idx=decks.findIndex(x=>x.id===editingId);if(idx===-1)return;
-  decks[idx]={...decks[idx],commander:cmd,nickname:document.getElementById('eNick').value.trim(),
+  const idx=window.decks.findIndex(x=>x.id===editingId);if(idx===-1)return;
+  window.decks[idx]={...window.decks[idx],commander:cmd,nickname:document.getElementById('eNick').value.trim(),
     bracket:document.getElementById('eBracket').value,deckType:document.getElementById('eType').value.trim(),
     edhrec:document.getElementById('eEdhrec').value.trim(),archi:document.getElementById('eArchi').value.trim(),
     notes:document.getElementById('eNotes').value.trim(),colors:[...selEdit],key:colorKey(selEdit)};
   save();closeEdit();render();
 }
 
-function deleteDeck(id){decks=decks.filter(d=>d.id!==id);save();render();}
-function deleteWish(id){wishes=wishes.filter(w=>w.id!==id);save();render();}
+function deleteDeck(id){window.decks=window.decks.filter(d=>d.id!==id);save();render();}
+function deleteWish(id){window.wishes=window.wishes.filter(w=>w.id!==id);save();render();}
 function promoteWish(id){
-  const w=wishes.find(x=>x.id===id);if(!w)return;
-  decks.push({id:Date.now(),commander:w.commander,nickname:w.nickname,colors:w.colors,key:w.key,
+  const w=window.wishes.find(x=>x.id===id);if(!w)return;
+  window.decks.push({id:Date.now(),commander:w.commander,nickname:w.nickname,colors:w.colors,key:w.key,
     bracket:'',archi:'',edhrec:'',deckType:w.deckType||'',notes:w.notes||''});
-  wishes=wishes.filter(x=>x.id!==id);save();render();
+  window.wishes=window.wishes.filter(x=>x.id!==id);save();render();
 }
 
-function save(){
-  try{localStorage.setItem('cmdDecks',JSON.stringify(decks));localStorage.setItem('cmdWishes',JSON.stringify(wishes));}catch(e){}
+// Export / Import
+function openExport(){
+  document.getElementById('exportText').value=JSON.stringify({v:1,decks:window.decks,wishes:window.wishes},null,2);
+  document.getElementById('copyConfirm').style.display='none';
+  document.getElementById('exportModal').classList.add('open');
+}
+function closeExport(){document.getElementById('exportModal').classList.remove('open');}
+function copyExport(){
+  const ta=document.getElementById('exportText');ta.select();
+  try{navigator.clipboard.writeText(ta.value).then(()=>{document.getElementById('copyConfirm').style.display='block';});}
+  catch(e){document.execCommand('copy');document.getElementById('copyConfirm').style.display='block';}
+}
+function openImport(){
+  document.getElementById('importText').value='';
+  document.getElementById('importErr').style.display='none';
+  document.getElementById('importModal').classList.add('open');
+}
+function closeImport(){document.getElementById('importModal').classList.remove('open');}
+function doImport(){
+  const raw=document.getElementById('importText').value.trim();
+  const err=document.getElementById('importErr');
+  try{
+    const parsed=JSON.parse(raw);
+    if(!Array.isArray(parsed.decks)||!Array.isArray(parsed.wishes))throw new Error('Invalid');
+    window.decks=parsed.decks;window.wishes=parsed.wishes;
+    save();render();closeImport();
+  }catch(e){err.textContent='Could not read that data. Make sure you pasted the full export text.';err.style.display='block';}
 }
 
-function render(){
+// Share / Friends
+function copyShareLink(){
+  const link=document.getElementById('shareLink').textContent;
+  navigator.clipboard.writeText(link).then(()=>{
+    document.getElementById('shareCopied').style.display='block';
+    setTimeout(()=>document.getElementById('shareCopied').style.display='none',3000);
+  }).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=link;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+    document.getElementById('shareCopied').style.display='block';
+    setTimeout(()=>document.getElementById('shareCopied').style.display='none',3000);
+  });
+}
+
+async function viewFriend(){
+  const input=document.getElementById('friendInput').value.trim();
+  const err=document.getElementById('friendErr');
+  if(!input){err.textContent='Enter a share link or User ID.';err.style.display='block';return;}
+  err.style.display='none';
+  // Extract UID from URL or use directly
+  let uid=input;
+  try{const url=new URL(input);uid=url.searchParams.get('view')||input;}catch(e){}
+  if(!uid){err.textContent='Could not parse that link.';err.style.display='block';return;}
+  const data=await window.viewFriendData(uid);
+  if(!data){err.textContent='No collection found for that link. Make sure they have signed in at least once.';err.style.display='block';return;}
+  const friendDecks=data.decks||[];
+  const friendName=data.displayName||'Your friend';
+  document.getElementById('friendViewTitle').textContent=`${friendName}'s decks (${friendDecks.length})`;
+  if(!friendDecks.length){
+    document.getElementById('friendDeckList').innerHTML='<div class="empty-state">This person has no decks yet.</div>';
+  } else {
+    const sorted=[...friendDecks].sort((a,b)=>(a.bracket||'9').localeCompare(b.bracket||'9')||a.commander.localeCompare(b.commander));
+    document.getElementById('friendDeckList').innerHTML=`<table class="dtable"><thead><tr>
+      <th>Commander</th><th>Nickname</th><th>Colors</th><th>Type / theme</th><th>Bracket</th><th>EDHREC</th><th>Deck link</th>
+    </tr></thead><tbody>${sorted.map(d=>{
+      const eurl=d.edhrec||(d.commander?'https://edhrec.com/commanders/'+autoSlug(d.commander):'');
+      const combo=ALL_COMBOS.find(c=>c.key===d.key);
+      return`<tr>
+        <td style="font-weight:500">${d.commander}</td>
+        <td style="color:var(--text2)">${d.nickname||'—'}</td>
+        <td><div class="pips-display">${pipsHTML(d.colors)}</div></td>
+        <td>${d.deckType?`<span class="deck-type-tag">${d.deckType}</span>`:'—'}</td>
+        <td>${bktBadge(d.bracket)}</td>
+        <td>${eurl?`<a href="${eurl}" target="_blank" rel="noopener">↗ View</a>`:'—'}</td>
+        <td>${d.archi?`<a href="${d.archi}" target="_blank" rel="noopener">↗ View</a>`:'—'}</td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+  }
+  document.getElementById('friendView').style.display='block';
+}
+function closeFriendView(){document.getElementById('friendView').style.display='none';}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+window.render = function render(){
+  const decks=window.decks, wishes=window.wishes;
   const ownedKeys=new Set(decks.map(d=>d.key));
   const wishKeys=new Set(wishes.map(w=>w.key));
   document.getElementById('statTotal').textContent=decks.length;
@@ -504,14 +812,13 @@ function render(){
   document.getElementById('statWish').textContent=wishes.length;
   document.getElementById('statArchi').textContent=decks.filter(d=>d.archi).length;
 
+  // Decks table
   const dl=document.getElementById('deckList');
   if(!decks.length){dl.innerHTML='<div class="empty-state">No decks yet. Add your first one above!</div>';}
   else{
     const sorted=[...decks].sort((a,b)=>(a.bracket||'9').localeCompare(b.bracket||'9')||a.commander.localeCompare(b.commander));
     dl.innerHTML=`<table class="dtable"><thead><tr>
-      <th>Commander</th><th>Nickname</th><th>Colors</th>
-      <th>Type / theme</th><th>Bracket</th>
-      <th>EDHREC</th><th>Deck link</th><th></th>
+      <th>Commander</th><th>Nickname</th><th>Colors</th><th>Type / theme</th><th>Bracket</th><th>EDHREC</th><th>Deck link</th><th></th>
     </tr></thead><tbody>${sorted.map(d=>{
       const eurl=edhrecURL(d);const combo=ALL_COMBOS.find(c=>c.key===d.key);
       return`<tr>
@@ -520,16 +827,17 @@ function render(){
         <td><div class="pips-display">${pipsHTML(d.colors)}</div></td>
         <td>${d.deckType?`<span class="deck-type-tag">${d.deckType}</span>`:'<span style="color:var(--text3);font-size:12px">—</span>'}</td>
         <td>${bktBadge(d.bracket)}</td>
-        <td>${eurl?`<a href="${eurl}" target="_blank" rel="noopener"><i class="ti ti-external-link" style="font-size:12px"></i> View</a>`:'<span style="font-size:12px;color:var(--text3)">—</span>'}</td>
-        <td>${d.archi?`<a href="${d.archi}" target="_blank" rel="noopener"><i class="ti ti-external-link" style="font-size:12px"></i> View</a>`:'<span style="font-size:12px;color:var(--text3)">—</span>'}</td>
+        <td>${eurl?`<a href="${eurl}" target="_blank" rel="noopener">↗ View</a>`:'<span style="color:var(--text3);font-size:12px">—</span>'}</td>
+        <td>${d.archi?`<a href="${d.archi}" target="_blank" rel="noopener">↗ View</a>`:'<span style="color:var(--text3);font-size:12px">—</span>'}</td>
         <td style="white-space:nowrap">
-          <button class="icon-btn edit" onclick="openEdit(${d.id})" title="Edit deck"><i class="ti ti-edit"></i></button>
+          <button class="icon-btn edit" onclick="openEdit(${d.id})" title="Edit"><i class="ti ti-edit"></i></button>
           <button class="icon-btn del" onclick="deleteDeck(${d.id})" title="Remove"><i class="ti ti-trash"></i></button>
         </td>
       </tr>`;
     }).join('')}</tbody></table>`;
   }
 
+  // Brackets
   const bktCounts={'1':0,'2':0,'3':0,'4':0,'5':0,'':0};
   decks.forEach(d=>bktCounts[d.bracket||'']++);
   const maxCount=Math.max(1,...Object.values(bktCounts));
@@ -558,14 +866,14 @@ function render(){
     bktDL.innerHTML=html;
   }
 
+  // Wishlist
   const wl=document.getElementById('wishList');
+  const PLBL={high:'High',med:'Medium',low:'Low'};const PCLS={high:'badge-high',med:'badge-med',low:'badge-low'};
   if(!wishes.length){wl.innerHTML='<div class="empty-state">No wishlist entries yet.</div>';}
   else{
-    const PLBL={high:'High',med:'Medium',low:'Low'};const PCLS={high:'badge-high',med:'badge-med',low:'badge-low'};
     const sorted=[...wishes].sort((a,b)=>{const o={high:0,med:1,low:2};return o[a.priority]-o[b.priority];});
     wl.innerHTML=`<table class="dtable"><thead><tr>
-      <th style="width:26%">Commander</th><th style="width:16%">Concept</th><th style="width:12%">Colors</th>
-      <th style="width:14%">Type / theme</th><th style="width:10%">Priority</th><th style="width:14%"></th>
+      <th>Commander</th><th>Concept</th><th>Colors</th><th>Type / theme</th><th>Priority</th><th></th>
     </tr></thead><tbody>${sorted.map(w=>{
       const url='https://edhrec.com/commanders/'+autoSlug(w.commander);
       return`<tr>
@@ -583,10 +891,10 @@ function render(){
     }).join('')}</tbody></table>`;
   }
 
-  const pg=document.getElementById('pieGrid');
+  // Coverage
   const deckCountByKey={};
   decks.forEach(d=>{deckCountByKey[d.key]=(deckCountByKey[d.key]||0)+1;});
-  pg.innerHTML=ALL_COMBOS.map(combo=>{
+  document.getElementById('pieGrid').innerHTML=ALL_COMBOS.map(combo=>{
     const cnt=deckCountByKey[combo.key]||0;
     const have=cnt>0;const wishing=!have&&wishKeys.has(combo.key);
     const mainC=combo.colors[0];const bg=PIE_BG[mainC]||'#eee';const tc=PIE_TC[mainC]||'#333';
@@ -600,82 +908,7 @@ function render(){
   const mc=document.getElementById('missingCard');
   if(missing.length){mc.style.display='block';document.getElementById('missingList').innerHTML=missing.map(c=>`<span style="margin-right:14px">· ${c.label} (${c.key})</span>`).join('');}
   else{mc.style.display='none';}
-}
-
-render();
-
-function openExport(){
-  const data=JSON.stringify({v:1,decks,wishes},null,2);
-  document.getElementById('exportText').value=data;
-  document.getElementById('copyConfirm').style.display='none';
-  document.getElementById('exportModal').classList.add('open');
-}
-function closeExport(){document.getElementById('exportModal').classList.remove('open');}
-function copyExport(){
-  const ta=document.getElementById('exportText');
-  ta.select();
-  try{
-    navigator.clipboard.writeText(ta.value).then(()=>{
-      document.getElementById('copyConfirm').style.display='block';
-    }).catch(()=>{document.execCommand('copy');document.getElementById('copyConfirm').style.display='block';});
-  }catch(e){document.execCommand('copy');document.getElementById('copyConfirm').style.display='block';}
-}
-function openImport(){
-  document.getElementById('importText').value='';
-  document.getElementById('importErr').style.display='none';
-  document.getElementById('importModal').classList.add('open');
-}
-function closeImport(){document.getElementById('importModal').classList.remove('open');}
-function doImport(){
-  const raw=document.getElementById('importText').value.trim();
-  const err=document.getElementById('importErr');
-  try{
-    const parsed=JSON.parse(raw);
-    if(!Array.isArray(parsed.decks)||!Array.isArray(parsed.wishes)) throw new Error('Invalid format');
-    decks=parsed.decks;
-    wishes=parsed.wishes;
-    save();render();
-    closeImport();
-  }catch(e){
-    err.textContent='Could not read that data. Make sure you pasted the full export text.';
-    err.style.display='block';
-  }
-}
+};
 </script>
-
-<!-- EXPORT MODAL -->
-<div id="exportModal" class="io-modal-backdrop" onclick="if(event.target===this)closeExport()">
-  <div class="io-modal">
-    <div class="modal-header">
-      <span class="modal-title">Export data</span>
-      <button class="icon-btn" onclick="closeExport()"><i class="ti ti-x"></i></button>
-    </div>
-    <p style="font-size:13px;color:var(--text2);margin-bottom:10px">Copy this text and save it somewhere safe — a notes app, Google Drive, email to yourself, etc. Use Import on any device to restore it.</p>
-    <textarea class="io-textarea" id="exportText" readonly onclick="this.select()"></textarea>
-    <div class="modal-actions">
-      <button class="btn-save" onclick="copyExport()">Copy to clipboard</button>
-      <button class="btn-cancel" onclick="closeExport()">Close</button>
-    </div>
-    <div id="copyConfirm" style="font-size:12px;color:var(--success-text);margin-top:8px;display:none">✓ Copied to clipboard!</div>
-  </div>
-</div>
-
-<!-- IMPORT MODAL -->
-<div id="importModal" class="io-modal-backdrop" onclick="if(event.target===this)closeImport()">
-  <div class="io-modal">
-    <div class="modal-header">
-      <span class="modal-title">Import data</span>
-      <button class="icon-btn" onclick="closeImport()"><i class="ti ti-x"></i></button>
-    </div>
-    <p style="font-size:13px;color:var(--text2);margin-bottom:10px">Paste your previously exported data below. <strong>This will replace all current data.</strong></p>
-    <textarea class="io-textarea" id="importText" placeholder="Paste exported data here..."></textarea>
-    <div id="importErr" class="err" style="display:none;margin-top:6px"></div>
-    <div class="modal-actions">
-      <button class="btn-save" onclick="doImport()">Import & replace</button>
-      <button class="btn-cancel" onclick="closeImport()">Cancel</button>
-    </div>
-  </div>
-</div>
-
 </body>
 </html>

@@ -403,7 +403,32 @@ body{font-family:var(--font);background:var(--bg3);color:var(--text);min-height:
       <div id="wishErr" class="err" style="display:none"></div>
       <button class="add-btn" onclick="addWish()"><i class="ti ti-star"></i> Add to wishlist</button>
     </div>
-    <div class="card"><div class="slabel" style="margin-bottom:10px">Deck ideas</div><div style="overflow-x:auto" id="wishList"></div></div>
+    <div class="card">
+      <div class="deck-section-head">
+        <div class="slabel" style="margin-bottom:0">Deck ideas <span class="deck-count-hint" id="wishResultCount"></span></div>
+      </div>
+      <div class="deck-toolbar">
+        <input class="finput deck-search" id="wishSearch" placeholder="Search commander, concept, theme, notes..." oninput="render()">
+        <select class="fsel" id="wishFilterColor" onchange="render()">
+          <option value="">All colors</option>
+          <option value="W">White</option><option value="U">Blue</option><option value="B">Black</option><option value="R">Red</option><option value="G">Green</option><option value="C">Colorless</option>
+          <option value="WUBRG">5-color</option>
+        </select>
+        <select class="fsel" id="wishFilterPriority" onchange="render()">
+          <option value="">All priorities</option>
+          <option value="high">High</option>
+          <option value="med">Medium</option>
+          <option value="low">Low</option>
+        </select>
+        <select class="fsel" id="wishSort" onchange="render()">
+          <option value="priority">Sort: Priority</option>
+          <option value="commander">Sort: Commander</option>
+          <option value="color">Sort: Color</option>
+          <option value="theme">Sort: Theme</option>
+        </select>
+      </div>
+      <div id="wishList"></div>
+    </div>
   </div>
 
   <!-- COVERAGE PANEL -->
@@ -1149,10 +1174,27 @@ function saveEdit(){
 function deleteDeck(id){window.decks=window.decks.filter(d=>d.id!==id);save();render();}
 function deleteWish(id){window.wishes=window.wishes.filter(w=>w.id!==id);save();render();}
 function promoteWish(id){
+  // Show inline confirm state on the card
+  const btn = document.getElementById(`promote-btn-${id}`);
+  const confirm = document.getElementById(`promote-confirm-${id}`);
+  if(!btn || !confirm) return;
+  btn.style.display = 'none';
+  confirm.style.display = 'flex';
+}
+
+function promoteWishConfirm(id){
   const w=window.wishes.find(x=>x.id===id);if(!w)return;
-  window.decks.push({id:Date.now(),commander:w.commander,nickname:w.nickname,colors:w.colors,key:w.key,
+  window.decks.push({id:Date.now(),commander:w.commander,commander2:w.commander2||'',nickname:w.nickname,colors:w.colors,key:w.key,
     bracket:'',archi:'',edhrec:'',deckType:w.deckType||'',notes:w.notes||''});
   window.wishes=window.wishes.filter(x=>x.id!==id);save();render();
+}
+
+function promoteWishCancel(id){
+  const btn = document.getElementById(`promote-btn-${id}`);
+  const confirm = document.getElementById(`promote-confirm-${id}`);
+  if(!btn || !confirm) return;
+  btn.style.display = '';
+  confirm.style.display = 'none';
 }
 
 // Export / Import
@@ -1611,29 +1653,64 @@ window.render = function render(){
     bktDL.innerHTML=html;
   }
 
-  // Wishlist
+  // Wishlist card list with search / filter / sort
   const wl=document.getElementById('wishList');
   const PLBL={high:'High',med:'Medium',low:'Low'};const PCLS={high:'badge-high',med:'badge-med',low:'badge-low'};
+  const wq=(document.getElementById('wishSearch')?.value||'').toLowerCase();
+  const wfColor=document.getElementById('wishFilterColor')?.value||'';
+  const wfPriority=document.getElementById('wishFilterPriority')?.value||'';
+  const wSortBy=document.getElementById('wishSort')?.value||'priority';
+
+  let wFiltered=[...wishes];
+  if(wq) wFiltered=wFiltered.filter(w=>
+    (w.commander||'').toLowerCase().includes(wq)||
+    (w.nickname||'').toLowerCase().includes(wq)||
+    (w.deckType||'').toLowerCase().includes(wq)||
+    (w.notes||'').toLowerCase().includes(wq)
+  );
+  if(wfColor==='WUBRG') wFiltered=wFiltered.filter(w=>['W','U','B','R','G'].every(c=>w.colors.includes(c)));
+  else if(wfColor) wFiltered=wFiltered.filter(w=>w.colors.includes(wfColor));
+  if(wfPriority) wFiltered=wFiltered.filter(w=>w.priority===wfPriority);
+
+  wFiltered.sort((a,b)=>{
+    if(wSortBy==='commander') return a.commander.localeCompare(b.commander);
+    if(wSortBy==='color') return (a.key||'').localeCompare(b.key||'');
+    if(wSortBy==='theme') return (a.deckType||'').localeCompare(b.deckType||'');
+    const o={high:0,med:1,low:2};return o[a.priority]-o[b.priority]||a.commander.localeCompare(b.commander);
+  });
+
+  const wHint=document.getElementById('wishResultCount');
+  if(wHint) wHint.textContent=wFiltered.length!==wishes.length?`(${wFiltered.length} of ${wishes.length})`:`(${wishes.length})`;
+
   if(!wishes.length){wl.innerHTML='<div class="empty-state">No wishlist entries yet.</div>';}
+  else if(!wFiltered.length){wl.innerHTML='<div class="empty-state">No entries match your filters.</div>';}
   else{
-    const sorted=[...wishes].sort((a,b)=>{const o={high:0,med:1,low:2};return o[a.priority]-o[b.priority];});
-    wl.innerHTML=`<table class="dtable"><thead><tr>
-      <th>Commander</th><th>Concept</th><th>Colors</th><th>Type / theme</th><th>Priority</th><th></th>
-    </tr></thead><tbody>${sorted.map(w=>{
-      const url='https://edhrec.com/commanders/'+autoSlug(w.commander);
-      return`<tr>
-        <td style="font-weight:500;white-space:normal">${w.commander}${w.notes?`<div style="font-size:11px;color:var(--text2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${w.notes}</div>`:''}</td>
-        <td style="color:var(--text2)">${w.nickname||'—'}</td>
-        <td><div class="pips-display">${pipsHTML(w.colors)}</div></td>
-        <td>${w.deckType?`<span class="deck-type-tag">${w.deckType}</span>`:'<span style="color:var(--text3);font-size:12px">—</span>'}</td>
-        <td><span class="badge ${PCLS[w.priority]}">${PLBL[w.priority]}</span></td>
-        <td style="white-space:nowrap">
-          <button class="icon-btn promote" onclick="promoteWish(${w.id})" title="Mark as built"><i class="ti ti-check"></i></button>
-          <a href="${url}" target="_blank" rel="noopener" style="color:var(--info-text);font-size:13px;margin:0 2px"><i class="ti ti-external-link"></i></a>
-          <button class="icon-btn del" onclick="deleteWish(${w.id})" title="Remove"><i class="ti ti-trash"></i></button>
-        </td>
-      </tr>`;
-    }).join('')}</tbody></table>`;
+    const eurl=w=>('https://edhrec.com/commanders/'+autoSlug(w.commander));
+    wl.innerHTML=`<div class="deck-card-list">${wFiltered.map(w=>`
+      <div class="deck-list-card">
+        <div class="deck-main">
+          <div class="deck-title">${w.commander}</div>
+          ${w.nickname?`<div class="deck-subtitle">${w.nickname}</div>`:''}
+          ${w.notes?`<div class="deck-notes-preview">${w.notes}</div>`:''}
+        </div>
+        <div class="deck-meta"><div class="pips-display">${pipsHTML(w.colors)}</div></div>
+        <div class="deck-meta">${w.deckType?`<span class="deck-type-tag">${w.deckType}</span>`:'<span style="color:var(--text3);font-size:12px">No theme</span>'}</div>
+        <div class="deck-meta"><span class="badge ${PCLS[w.priority]||'badge-low'}">${PLBL[w.priority]||w.priority}</span></div>
+        <div>
+          <div class="deck-links">
+            <a class="deck-link-pill" href="${eurl(w)}" target="_blank" rel="noopener">EDHREC</a>
+          </div>
+          <div class="deck-actions" style="margin-top:6px">
+            <button class="icon-btn promote" id="promote-btn-${w.id}" onclick="promoteWish(${w.id})" title="Mark as built"><i class="ti ti-check"></i></button>
+            <span id="promote-confirm-${w.id}" style="display:none;align-items:center;gap:4px;font-size:11px;color:var(--text2)">
+              Built?
+              <button class="icon-btn promote" onclick="promoteWishConfirm(${w.id})" title="Yes, move to decks" style="color:var(--success-text)"><i class="ti ti-check"></i></button>
+              <button class="icon-btn" onclick="promoteWishCancel(${w.id})" title="Cancel" style="color:var(--danger-text)"><i class="ti ti-x"></i></button>
+            </span>
+            <button class="icon-btn del" onclick="deleteWish(${w.id})" title="Remove"><i class="ti ti-trash"></i></button>
+          </div>
+        </div>
+      </div>`).join('')}</div>`;
   }
 
   // Saved friends list

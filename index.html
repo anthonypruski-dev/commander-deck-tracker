@@ -155,6 +155,12 @@ body{font-family:var(--font);background:var(--bg3);color:var(--text);min-height:
 .io-textarea{width:100%;min-height:140px;padding:8px 10px;border-radius:var(--radius);border:0.5px solid var(--border2);background:var(--bg2);color:var(--text);font-size:12px;font-family:monospace;resize:vertical}
 .io-modal{background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius-lg);padding:1.25rem;width:100%;max-width:520px;margin:auto}
 
+.scry-wrap{position:relative;width:100%}
+.scry-dropdown{position:absolute;top:100%;left:0;right:0;background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius);box-shadow:0 4px 16px rgba(0,0,0,0.12);z-index:200;max-height:220px;overflow-y:auto;margin-top:2px}
+.scry-item{padding:8px 12px;font-size:13px;cursor:pointer;color:var(--text);border-bottom:0.5px solid var(--border)}
+.scry-item:last-child{border-bottom:none}
+.scry-item:hover,.scry-item.active{background:var(--info-bg);color:var(--info-text)}
+.scry-loading{padding:8px 12px;font-size:12px;color:var(--text2)}
 .guest-banner{background:#faeeda;border:0.5px solid #ef9f27;border-radius:var(--radius);padding:8px 14px;font-size:12px;color:#633806;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:1rem;flex-wrap:wrap}
 .guest-banner a{color:#633806;font-weight:500;cursor:pointer;text-decoration:underline}
 @media(max-width:600px){.fg2,.fg3{grid-template-columns:1fr}.tabs{overflow-x:auto}.tab{white-space:nowrap;padding:8px 12px;font-size:13px}}
@@ -239,7 +245,10 @@ body{font-family:var(--font);background:var(--bg3);color:var(--text);min-height:
     <div class="card">
       <div class="slabel">Add a deck</div>
       <div class="fg fg2">
-        <input class="finput" id="cmdName" placeholder="Commander name (e.g. Atraxa)">
+        <div class="scry-wrap">
+          <input class="finput" id="cmdName" placeholder="Commander name (e.g. Atraxa)" autocomplete="off" oninput="scrySearch(this,'scryDrop1')" onkeydown="scryKey(event,'scryDrop1','cmdName')">
+          <div id="scryDrop1" class="scry-dropdown" style="display:none"></div>
+        </div>
         <input class="finput" id="deckName" placeholder="Deck nickname (optional)">
       </div>
       <div style="margin-bottom:10px;display:flex;align-items:center;gap:8px">
@@ -250,7 +259,10 @@ body{font-family:var(--font);background:var(--bg3);color:var(--text);min-height:
       </div>
       <div id="dCmd2Wrap" style="display:none;margin-bottom:10px">
         <div class="slabel">Second commander</div>
-        <input class="finput" id="dCmd2" placeholder="Partner commander name">
+        <div class="scry-wrap">
+          <input class="finput" id="dCmd2" placeholder="Partner commander name" autocomplete="off" oninput="scrySearch(this,'scryDrop2')" onkeydown="scryKey(event,'scryDrop2','dCmd2')">
+          <div id="scryDrop2" class="scry-dropdown" style="display:none"></div>
+        </div>
         <div id="dEdhrecNote" style="font-size:11px;color:var(--text2);margin-top:5px;padding:6px 8px;background:var(--bg2);border-radius:var(--radius);border:0.5px solid var(--border)">
           ⚠ Partner EDHREC links must be entered manually — the auto-generated link won't work for partner pairs. Look up your pair on EDHREC and paste the URL in the EDHREC URL field below.
         </div>
@@ -427,7 +439,12 @@ body{font-family:var(--font);background:var(--bg3);color:var(--text);min-height:
       <button class="icon-btn" onclick="closeEdit()"><i class="ti ti-x"></i></button>
     </div>
     <div class="fg fg2">
-      <div><div class="slabel">Commander name</div><input class="finput" id="eCmd" placeholder="Commander name"></div>
+      <div><div class="slabel">Commander name</div>
+        <div class="scry-wrap">
+          <input class="finput" id="eCmd" placeholder="Commander name" autocomplete="off" oninput="scrySearch(this,'scryDrop3')" onkeydown="scryKey(event,'scryDrop3','eCmd')">
+          <div id="scryDrop3" class="scry-dropdown" style="display:none"></div>
+        </div>
+      </div>
       <div><div class="slabel">Deck nickname</div><input class="finput" id="eNick" placeholder="Nickname (optional)"></div>
     </div>
     <div style="margin-bottom:8px;display:flex;align-items:center;gap:8px">
@@ -807,6 +824,85 @@ function togglePartnerField(fieldId, checkboxId, noteId){
   const wrap=document.getElementById(fieldId+'Wrap');
   if(wrap) wrap.style.display=document.getElementById(checkboxId).checked?'block':'none';
 }
+
+// ── Scryfall autocomplete ─────────────────────────────────────────────────────
+let scryTimer = null;
+let scryActive = {}; // tracks active index per dropdown
+
+function scrySearch(input, dropId) {
+  const q = input.value.trim();
+  const drop = document.getElementById(dropId);
+  clearTimeout(scryTimer);
+  if(q.length < 2) { drop.style.display='none'; return; }
+  scryTimer = setTimeout(async () => {
+    try {
+      drop.innerHTML = '<div class="scry-loading">Searching...</div>';
+      drop.style.display = 'block';
+      const res = await fetch(`https://api.scryfall.com/cards/autocomplete?q=${encodeURIComponent(q)}&include_extras=false`);
+      const data = await res.json();
+      if(!data.data || !data.data.length) {
+        drop.innerHTML = '<div class="scry-loading">No results found</div>';
+        return;
+      }
+      scryActive[dropId] = -1;
+      drop.innerHTML = data.data.slice(0,10).map((name,i) =>
+        `<div class="scry-item" data-name="${name}" data-idx="${i}"
+          onmousedown="scryPick('${input.id}','${dropId}','${name.replace(/'/g,"\'")}')"
+          onmouseover="scryHover('${dropId}',${i})">${name}</div>`
+      ).join('');
+    } catch(e) {
+      drop.style.display = 'none';
+    }
+  }, 200);
+}
+
+function scryPick(inputId, dropId, name) {
+  document.getElementById(inputId).value = name;
+  document.getElementById(dropId).style.display = 'none';
+  scryActive[dropId] = -1;
+}
+
+function scryHover(dropId, idx) {
+  scryActive[dropId] = idx;
+  document.querySelectorAll('#'+dropId+' .scry-item').forEach((el,i) => {
+    el.classList.toggle('active', i === idx);
+  });
+}
+
+function scryKey(e, dropId, inputId) {
+  const drop = document.getElementById(dropId);
+  if(drop.style.display === 'none') return;
+  const items = drop.querySelectorAll('.scry-item');
+  if(!items.length) return;
+  let idx = scryActive[dropId] ?? -1;
+  if(e.key === 'ArrowDown') {
+    e.preventDefault();
+    idx = Math.min(idx+1, items.length-1);
+    scryActive[dropId] = idx;
+    items.forEach((el,i) => el.classList.toggle('active', i===idx));
+    items[idx]?.scrollIntoView({block:'nearest'});
+  } else if(e.key === 'ArrowUp') {
+    e.preventDefault();
+    idx = Math.max(idx-1, 0);
+    scryActive[dropId] = idx;
+    items.forEach((el,i) => el.classList.toggle('active', i===idx));
+    items[idx]?.scrollIntoView({block:'nearest'});
+  } else if(e.key === 'Enter' && idx >= 0) {
+    e.preventDefault();
+    const name = items[idx].dataset.name;
+    scryPick(inputId, dropId, name);
+  } else if(e.key === 'Escape') {
+    drop.style.display = 'none';
+    scryActive[dropId] = -1;
+  }
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', e => {
+  if(!e.target.closest('.scry-wrap')) {
+    document.querySelectorAll('.scry-dropdown').forEach(d => d.style.display='none');
+  }
+});
 
 function save(){
   if(window.guestMode) {

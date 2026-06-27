@@ -571,12 +571,13 @@ let unsub = null;
   const params = new URLSearchParams(window.location.search);
   const viewUid = params.get('view');
   if(viewUid) {
-    // Store for use after auth (existing friend-add flow)
+    // Store for use after auth (existing friend-add flow for signed-in users)
     sessionStorage.setItem('pendingViewUid', viewUid);
-    // Show public view immediately — auth state will resolve asynchronously.
-    // onAuthStateChanged will override this if user is already signed in.
+    // Mark that we want a public view — actual render is deferred until
+    // onAuthStateChanged fires (which happens after Firebase + constants are ready).
+    // If user is signed in, onAuthStateChanged handles it via the friend flow.
+    // If user is not signed in, onAuthStateChanged else-branch calls renderPublicView.
     window._publicViewUid = viewUid;
-    renderPublicView(viewUid);
   }
 })();
 
@@ -778,8 +779,10 @@ onAuthStateChanged(auth, async (user) => {
   } else {
     currentUser = null;
     if(unsub) { unsub(); unsub = null; }
-    // Don't show auth screen if we're rendering a public share view
-    if(!window._publicViewUid) {
+    // If arriving via a ?view=UID link and not signed in, show public view
+    if(window._publicViewUid) {
+      renderPublicView(window._publicViewUid);
+    } else {
       document.getElementById('authScreen').style.display = 'flex';
       document.getElementById('appScreen').style.display = 'none';
     }
@@ -1782,5 +1785,6 @@ window.render = function render(){
 </script>
 </body>
 </html>
+
 
 

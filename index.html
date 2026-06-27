@@ -330,7 +330,10 @@ body{font-family:var(--font);background:var(--bg3);color:var(--text);min-height:
     <div class="card">
       <div class="slabel">Add to wishlist</div>
       <div class="fg fg2">
-        <input class="finput" id="wCmdName" placeholder="Commander name">
+        <div class="scry-wrap">
+          <input class="finput" id="wCmdName" placeholder="Commander name" autocomplete="off" oninput="scrySearch(this,'scryDrop5')" onkeydown="scryKey(event,'scryDrop5','wCmdName')">
+          <div id="scryDrop5" class="scry-dropdown" style="display:none"></div>
+        </div>
         <input class="finput" id="wDeckName" placeholder="Deck concept (optional)">
       </div>
       <div class="slabel">Color identity</div>

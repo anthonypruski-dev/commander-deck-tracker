@@ -689,17 +689,6 @@ onAuthStateChanged(auth, async (user) => {
     document.getElementById('authScreen').style.display = 'none';
     document.getElementById('appScreen').style.display = 'block';
 
-    // Restore friends panel if it was replaced by guest mode lock screen
-    const friendsPanel = document.getElementById('panel-friends');
-    if(friendsPanel && !friendsPanel.querySelector('.card:first-child .slabel')) {
-      // Panel was replaced — reload the page to restore full HTML
-      // Only do this if we weren't already a signed-in user (i.e., coming from guest)
-      if(window.guestMode === false && friendsPanel.querySelector('.io-btn')) {
-        window.location.reload();
-        return;
-      }
-    }
-
     // Set user info
     window.guestMode = false;
     const guestBanner = document.getElementById('guestBanner');
@@ -753,6 +742,14 @@ onAuthStateChanged(auth, async (user) => {
       }
       setSyncStatus('ok');
       window.render();
+      // Handle incoming share link after data is loaded and rendered
+      if(window._pendingShareUid) {
+        const uid = window._pendingShareUid;
+        window._pendingShareUid = null;
+        setTimeout(async () => {
+          await handleIncomingShareLink(uid);
+        }, 300);
+      }
     }, (err) => {
       console.error('Snapshot error', err);
       setSyncStatus('err');
@@ -766,10 +763,9 @@ onAuthStateChanged(auth, async (user) => {
 
     if(viewUid && viewUid !== user.uid) {
       sessionStorage.removeItem('pendingViewUid');
-      // Auto-add to friends list and show their decks
-      setTimeout(async () => {
-        await handleIncomingShareLink(viewUid);
-      }, 1000);
+      // Wait for Firestore snapshot + render to complete before showing modal
+      // Use a flag so onSnapshot render doesn't interfere
+      window._pendingShareUid = viewUid;
     }
 
   } else {
@@ -1105,11 +1101,12 @@ async function handleIncomingShareLink(uid) {
     document.body.appendChild(modal);
 
     // Switch to friends tab
-    const friendsTab = document.querySelector('.tab:nth-child(5)');
+    const friendsTab = [...document.querySelectorAll('.tab')].find(t => t.textContent.includes('Friends'));
     if(friendsTab) friendsTab.click();
   } else {
     // Already a friend — just show their decks
-    switchTab('friends', document.querySelector('.tab:nth-child(5)'));
+    const ft = [...document.querySelectorAll('.tab')].find(t => t.textContent.includes('Friends'));
+    if(ft) switchTab('friends', ft);
     await loadFriendView(uid, existingFriend.nickname);
   }
 }
@@ -1126,17 +1123,17 @@ function confirmAddFriend(uid, displayName) {
   }
 
   // Switch to friends tab and show their decks
-  const friendsTab = document.querySelector('.tab:nth-child(5)');
+  const friendsTab = [...document.querySelectorAll('.tab')].find(t => t.textContent.includes('Friends'));
   if(friendsTab) friendsTab.click();
-  setTimeout(() => loadFriendView(uid, nickname), 100);
+  setTimeout(() => loadFriendView(uid, nickname), 200);
 }
 
 function skipAddFriend(uid, displayName) {
   const modal = document.getElementById('incomingFriendModal');
   if(modal) modal.remove();
-  const friendsTab = document.querySelector('.tab:nth-child(5)');
+  const friendsTab = [...document.querySelectorAll('.tab')].find(t => t.textContent.includes('Friends'));
   if(friendsTab) friendsTab.click();
-  setTimeout(() => loadFriendView(uid, displayName), 100);
+  setTimeout(() => loadFriendView(uid, displayName), 200);
 }
 
 function extractUid(input){

@@ -571,11 +571,10 @@ let unsub = null;
   const params = new URLSearchParams(window.location.search);
   const viewUid = params.get('view');
   if(viewUid) {
-    // Store for use after auth
     sessionStorage.setItem('pendingViewUid', viewUid);
-    // Update auth screen to show share context
-    const notice = document.getElementById('authShareNotice');
-    if(notice) notice.style.display = 'block';
+    window._publicViewUid = viewUid;
+    // Actual rendering is deferred to onAuthStateChanged, which fires after
+    // Firebase + all scripts are fully initialized.
   }
 })();
 
@@ -655,6 +654,8 @@ window.saveToFirebase = async () => {
       decks: window.decks,
       wishes: window.wishes,
       savedFriends: window.savedFriends,
+      publicDecks: window.decks,
+      publicWishes: window.wishes,
       updatedAt: Date.now(),
       displayName: currentUser.displayName || '',
       photoURL: currentUser.photoURL || ''
@@ -686,6 +687,9 @@ function setSyncStatus(state) {
 onAuthStateChanged(auth, async (user) => {
   if(user) {
     currentUser = user;
+    window._publicViewUid = null;
+    const pv = document.getElementById('publicViewScreen');
+    if(pv) pv.style.display = 'none';
     document.getElementById('authScreen').style.display = 'none';
     document.getElementById('appScreen').style.display = 'block';
 
@@ -771,8 +775,16 @@ onAuthStateChanged(auth, async (user) => {
   } else {
     currentUser = null;
     if(unsub) { unsub(); unsub = null; }
-    document.getElementById('authScreen').style.display = 'flex';
-    document.getElementById('appScreen').style.display = 'none';
+    if(window._publicViewUid) {
+      // Arriving via share link, not signed in — show public read-only view
+      // renderPublicView is defined in the plain script block below
+      if(typeof window.renderPublicView === 'function') {
+        window.renderPublicView(window._publicViewUid);
+      }
+    } else {
+      document.getElementById('authScreen').style.display = 'flex';
+      document.getElementById('appScreen').style.display = 'none';
+    }
   }
 });
 </script>
@@ -1183,16 +1195,53 @@ async function viewFriend(uid, nickname){
   await loadFriendView(uid, nickname);
 }
 
-async function loadFriendView(uid, nickname){
-  const err=document.getElementById('friendErr');
-  const data=await window.viewFriendData(uid);
-  if(!data){err.textContent=`Couldn't load ${nickname}'s collection. Make sure the link is correct and they've signed in at least once.`;err.style.display='block';return;}
-  const friendDecks=data.decks||[];
-  const friendWishes=data.wishes||[];
-  const friendName=data.displayName||nickname||'Friend';
-  document.getElementById('friendViewTitle').textContent=`${friendName}'s collection`;
+// ── Public (unauthenticated) share view ──────────────────────────────────────
+// Uses window.viewFriendData and window.promptSignIn (both exposed from module script)
+window.renderPublicView = async function(uid) {
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'none';
+  let container = document.getElementById('publicViewScreen');
+  if(!container) {
+    container = document.createElement('div');
+    container.id = 'publicViewScreen';
+    container.className = 'container';
+    document.body.appendChild(container);
+  }
+  container.style.display = 'block';
+  container.innerHTML = `<div style="text-align:center;padding:3rem 0;color:var(--text2);font-size:13px">Loading collection…</div>`;
+  const data = await window.viewFriendData(uid);
+  if(!data) {
+    container.innerHTML = `<div class="card" style="text-align:center;padding:2rem;color:var(--danger-text)">Could not load this collection. The link may be invalid.</div>`;
+    return;
+  }
+  const friendDecks = data.publicDecks || data.decks || [];
+  const friendWishes = data.publicWishes || data.wishes || [];
+  const friendName = data.displayName || 'A friend';
+  container.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:1.25rem">
+      <div>
+        <div style="font-size:20px;font-weight:500">⚔️ ${friendName}'s Collection</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:3px">👁 Read-only view</div>
+      </div>
+      <button class="io-btn primary" onclick="window.promptSignIn()" style="display:flex;align-items:center;gap:6px">
+        <svg width="14" height="14" viewBox="0 0 24 24" style="flex-shrink:0">
+          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+        </svg>
+        Sign in to add as friend
+      </button>
+    </div>
+    <div id="publicViewContent"></div>`;
+  renderFriendViewContent('publicViewContent', friendDecks, friendWishes);
+};
 
-  // ── Bracket distribution chart ────────────────────────────────────────────
+// ── Shared friend/public view content renderer ────────────────────────────────
+function renderFriendViewContent(containerId, friendDecks, friendWishes) {
+  const container = document.getElementById(containerId);
+  if(!container) return;
+  // Bracket chart
   const bktCounts={'1':0,'2':0,'3':0,'4':0,'4.5':0,'5':0,'':0};
   friendDecks.forEach(d=>bktCounts[d.bracket||'']++);
   const maxBkt=Math.max(1,...Object.values(bktCounts));
@@ -1203,8 +1252,7 @@ async function loadFriendView(uid, nickname){
   const bktLegendHTML=['1','2','3','4','4.5','5'].map(b=>{
     const cfg=BKT_CFG[b];return`<span style="font-size:11px;padding:2px 8px;border-radius:var(--radius);background:${cfg.bg};color:${cfg.tc}">${cfg.label}</span>`;
   }).join('');
-
-  // ── Color pie coverage ────────────────────────────────────────────────────
+  // Color pie
   const ownedKeys=new Set(friendDecks.map(d=>d.key));
   const wishKeys=new Set(friendWishes.map(w=>w.key));
   const deckCountByKey={};
@@ -1218,7 +1266,7 @@ async function loadFriendView(uid, nickname){
       style=`background:${bg};color:${tc};border:2px solid ${tc};font-weight:600;`;
       icon=cnt>1?` <span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:${tc};color:${bg};font-size:9px;font-weight:700;vertical-align:middle">${cnt}</span>`:` <span style="color:${tc};font-size:11px">✓</span>`;
     } else if(wishing){
-      style=`background:#ffffff;color:${tc};border:2px dashed ${tc};opacity:.85;`;
+      style=`background:#fff;color:${tc};border:2px dashed ${tc};opacity:.85;`;
       icon=` <span style="font-size:10px">★</span>`;
     } else {
       style=`background:#e8e6e2;color:#aaa;border:1px solid #ccc;`;
@@ -1229,13 +1277,13 @@ async function loadFriendView(uid, nickname){
   const missingHTML=missing.length
     ?`<div style="margin-top:10px;font-size:12px;color:var(--text2)"><strong>Missing combos:</strong> ${missing.map(c=>`<span style="margin-right:10px">· ${c.label} (${c.key})</span>`).join('')}</div>`
     :`<div style="margin-top:10px;font-size:12px;color:var(--success-text)">✓ All 32 color combinations covered!</div>`;
-
-  // ── Deck rows with collapsible notes ─────────────────────────────────────
+  // Deck rows
+  const idPrefix=containerId;
   const sorted=[...friendDecks].sort((a,b)=>(a.bracket||'9').localeCompare(b.bracket||'9')||a.commander.localeCompare(b.commander));
   const deckRowsHTML=sorted.map((d,i)=>{
     const eurl=d.edhrec||(d.commander?'https://edhrec.com/commanders/'+autoSlug(d.commander):'');
-    const notesBtn=d.notes?`<button class="icon-btn" onclick="toggleFriendNotes(${i})" title="Toggle notes" style="font-size:12px;color:var(--text3)" id="fnote-btn-${i}">📝</button>`:'';
-    const notesRow=d.notes?`<tr id="fnote-${i}" style="display:none"><td colspan="7" style="padding:6px 8px 10px;font-style:italic;font-size:12px;color:var(--text2);white-space:normal;background:var(--bg2)">${d.notes}</td></tr>`:'';
+    const notesBtn=d.notes?`<button class="icon-btn" onclick="toggleFriendNotesIn('${idPrefix}',${i})" title="Toggle notes" style="font-size:12px;color:var(--text3)" id="${idPrefix}-fnote-btn-${i}">📝</button>`:'';
+    const notesRow=d.notes?`<tr id="${idPrefix}-fnote-${i}" style="display:none"><td colspan="7" style="padding:6px 8px 10px;font-style:italic;font-size:12px;color:var(--text2);white-space:normal;background:var(--bg2)">${d.notes}</td></tr>`:'';
     return`<tr>
       <td style="font-weight:500">${d.commander}${d.commander2?` <span style='color:var(--text2);font-size:11px'>+ ${d.commander2}</span>`:''}</td>
       <td style="color:var(--text2)">${d.nickname||'—'}</td>
@@ -1246,13 +1294,11 @@ async function loadFriendView(uid, nickname){
       <td>${d.archi?`<a href="${d.archi}" target="_blank" rel="noopener">↗ View</a>`:'—'}${notesBtn}</td>
     </tr>${notesRow}`;
   }).join('');
-
-  // ── Wishlist ──────────────────────────────────────────────────────────────
+  // Wishlist
   const PLBL={high:'High',med:'Medium',low:'Low'};const PCLS={high:'badge-high',med:'badge-med',low:'badge-low'};
   const wishHTML=friendWishes.length
-    ?`<table class="dtable"><thead><tr>
-        <th>Commander</th><th>Concept</th><th>Colors</th><th>Type / theme</th><th>Priority</th>
-      </tr></thead><tbody>${[...friendWishes].sort((a,b)=>{const o={high:0,med:1,low:2};return o[a.priority]-o[b.priority];}).map(w=>{
+    ?`<table class="dtable"><thead><tr><th>Commander</th><th>Concept</th><th>Colors</th><th>Type / theme</th><th>Priority</th></tr></thead><tbody>${
+      [...friendWishes].sort((a,b)=>{const o={high:0,med:1,low:2};return o[a.priority]-o[b.priority];}).map(w=>{
         const url='https://edhrec.com/commanders/'+autoSlug(w.commander);
         return`<tr>
           <td style="font-weight:500;white-space:normal"><a href="${url}" target="_blank" rel="noopener" style="color:var(--info-text);text-decoration:none">${w.commander}</a>${w.notes?`<div style="font-size:11px;color:var(--text2);font-style:italic;margin-top:2px">${w.notes}</div>`:''}</td>
@@ -1263,57 +1309,65 @@ async function loadFriendView(uid, nickname){
         </tr>`;
       }).join('')}</tbody></table>`
     :`<div class="empty-state">No wishlist entries yet.</div>`;
-
-  // ── Render into friendDeckList ────────────────────────────────────────────
-  document.getElementById('friendDeckList').innerHTML=`
-    <!-- Bracket distribution -->
+  container.innerHTML=`
     <div style="margin-bottom:1rem">
-      <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:6px 0;user-select:none" onclick="toggleFriendSection('fs-brackets',this)">
+      <div style="cursor:pointer;padding:6px 0;user-select:none" onclick="toggleFriendSection('${idPrefix}-fs-brackets',this)">
         <div style="font-size:12px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.04em">▾ Bracket distribution</div>
       </div>
-      <div id="fs-brackets" style="background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem">
+      <div id="${idPrefix}-fs-brackets" style="background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem">
         <div class="bkt-bar">${bktBarHTML}</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${bktLegendHTML}</div>
       </div>
     </div>
-
-    <!-- Color pie coverage -->
     <div style="margin-bottom:1rem">
-      <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:6px 0;user-select:none" onclick="toggleFriendSection('fs-coverage',this)">
+      <div style="cursor:pointer;padding:6px 0;user-select:none" onclick="toggleFriendSection('${idPrefix}-fs-coverage',this)">
         <div style="font-size:12px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.04em">▾ Color pie coverage</div>
       </div>
-      <div id="fs-coverage" style="background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem">
+      <div id="${idPrefix}-fs-coverage" style="background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem">
         <div class="pie-grid">${pieGridHTML}</div>
         <div style="display:flex;gap:14px;font-size:12px;color:var(--text3);flex-wrap:wrap;margin-top:.25rem">
-          <span>✓ Built</span>
-          <span>★ On wishlist</span>
-          <span style="opacity:.5">— Not planned</span>
+          <span>✓ Built</span><span>★ On wishlist</span><span style="opacity:.5">— Not planned</span>
         </div>
         ${missingHTML}
       </div>
     </div>
-
-    <!-- Decks -->
     <div style="margin-bottom:1rem">
       <div style="font-size:12px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;padding:6px 0">${friendDecks.length} deck${friendDecks.length!==1?'s':''}</div>
       ${friendDecks.length
         ?`<div style="overflow-x:auto"><table class="dtable"><thead><tr>
             <th>Commander</th><th>Nickname</th><th>Colors</th><th>Type / theme</th><th>Bracket</th><th>EDHREC</th><th>Deck</th>
           </tr></thead><tbody>${deckRowsHTML}</tbody></table></div>`
-        :`<div class="empty-state">This person has no decks yet.</div>`}
+        :`<div class="empty-state">No decks yet.</div>`}
     </div>
-
-    <!-- Wishlist -->
     <div style="margin-bottom:.5rem">
-      <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:6px 0;user-select:none" onclick="toggleFriendSection('fs-wishlist',this)">
+      <div style="cursor:pointer;padding:6px 0;user-select:none" onclick="toggleFriendSection('${idPrefix}-fs-wishlist',this)">
         <div style="font-size:12px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.04em">▾ Wishlist (${friendWishes.length})</div>
       </div>
-      <div id="fs-wishlist" style="background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem">
+      <div id="${idPrefix}-fs-wishlist" style="background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem">
         ${wishHTML}
       </div>
-    </div>
-  `;
+    </div>`;
+}
 
+function toggleFriendNotesIn(prefix, i){
+  const row=document.getElementById(`${prefix}-fnote-${i}`);
+  const btn=document.getElementById(`${prefix}-fnote-btn-${i}`);
+  if(!row)return;
+  const open=row.style.display==='none';
+  row.style.display=open?'':'none';
+  if(btn)btn.style.color=open?'var(--info-text)':'var(--text3)';
+}
+
+async function loadFriendView(uid, nickname){
+  const err=document.getElementById('friendErr');
+  const data=await window.viewFriendData(uid);
+  if(!data){err.textContent=`Couldn't load ${nickname}'s collection. Make sure the link is correct and they've signed in at least once.`;err.style.display='block';return;}
+  const friendDecks=data.decks||[];
+  const friendWishes=data.wishes||[];
+  const friendName=data.displayName||nickname||'Friend';
+  document.getElementById('friendViewTitle').textContent=`${friendName}'s collection`;
+  document.getElementById('friendDeckList').innerHTML='';
+  renderFriendViewContent('friendDeckList', friendDecks, friendWishes);
   document.getElementById('friendView').style.display='block';
   document.getElementById('friendView').scrollIntoView({behavior:'smooth',block:'start'});
 }
@@ -1325,15 +1379,6 @@ function toggleFriendSection(id, header){
   const collapsed=el.style.display==='none';
   el.style.display=collapsed?'':'none';
   lbl.textContent=lbl.textContent.replace(collapsed?'▸':'▾',collapsed?'▾':'▸');
-}
-
-function toggleFriendNotes(i){
-  const row=document.getElementById(`fnote-${i}`);
-  const btn=document.getElementById(`fnote-btn-${i}`);
-  if(!row)return;
-  const open=row.style.display==='none';
-  row.style.display=open?'':'none';
-  if(btn)btn.style.color=open?'var(--info-text)':'var(--text3)';
 }
 
 function closeFriendView(){document.getElementById('friendView').style.display='none';}

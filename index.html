@@ -171,8 +171,12 @@ body{font-family:var(--font);background:var(--bg3);color:var(--text);min-height:
 <!-- AUTH SCREEN -->
 <div id="authScreen" class="container">
   <div style="font-size:48px;margin-bottom:16px">⚔️</div>
-  <h1>Commander Deck Tracker</h1>
-  <p>Track your Commander decks, wishlist, power levels, and share your collection with friends. Sign in to sync across all your devices.</p>
+  <h1 id="authTitle">Commander Deck Tracker</h1>
+  <p id="authSubtitle">Track your Commander decks, wishlist, power levels, and share your collection with friends. Sign in to sync across all your devices.</p>
+  <div id="authShareNotice" style="display:none;max-width:340px;background:var(--info-bg);border:0.5px solid var(--info-border);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--info-text);margin-bottom:1rem;text-align:left">
+    <strong>👥 You were invited to view a friend's deck collection.</strong><br>
+    Sign in or continue as guest to view their decks — they'll also be added to your friends list automatically.
+  </div>
   <button class="google-btn" onclick="signIn()">
     <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
       <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -562,6 +566,19 @@ let currentUser = null;
 let unsub = null;
 
 // Expose auth functions to global scope
+// ── Share link detection ─────────────────────────────────────────────────────
+(function detectShareLink(){
+  const params = new URLSearchParams(window.location.search);
+  const viewUid = params.get('view');
+  if(viewUid) {
+    // Store for use after auth
+    sessionStorage.setItem('pendingViewUid', viewUid);
+    // Update auth screen to show share context
+    const notice = document.getElementById('authShareNotice');
+    if(notice) notice.style.display = 'block';
+  }
+})();
+
 window.continueAsGuest = () => {
   // Load any existing localStorage data
   try {
@@ -741,13 +758,17 @@ onAuthStateChanged(auth, async (user) => {
       setSyncStatus('err');
     });
 
-    // Check if viewing someone else's profile
+    // Check if arriving via a share link (from URL or sessionStorage)
     const params = new URLSearchParams(window.location.search);
-    const viewUid = params.get('view');
+    const urlViewUid = params.get('view');
+    const storedViewUid = sessionStorage.getItem('pendingViewUid');
+    const viewUid = urlViewUid || storedViewUid;
+
     if(viewUid && viewUid !== user.uid) {
-      setTimeout(() => {
-        document.getElementById('friendInput').value = viewUid;
-        window.viewFriend();
+      sessionStorage.removeItem('pendingViewUid');
+      // Auto-add to friends list and show their decks
+      setTimeout(async () => {
+        await handleIncomingShareLink(viewUid);
       }, 1000);
     }
 
@@ -1049,6 +1070,73 @@ function copyShareLink(){
     document.getElementById('shareCopied').style.display='block';
     setTimeout(()=>document.getElementById('shareCopied').style.display='none',3000);
   });
+}
+
+async function handleIncomingShareLink(uid) {
+  // Fetch their data
+  const data = await window.viewFriendData(uid);
+  if(!data) return; // silently fail if no data
+
+  const displayName = data.displayName || 'Friend';
+  const existingFriend = window.savedFriends.find(f => f.uid === uid);
+
+  if(!existingFriend) {
+    // Show a friendly prompt for a nickname
+    // Pre-fill with their Google display name, let user change it
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;display:flex;align-items:center;justify-content:center;padding:1rem';
+    modal.innerHTML = `
+      <div style="background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius-lg);padding:1.5rem;max-width:400px;width:100%">
+        <div style="font-size:20px;margin-bottom:8px">👥 Add friend?</div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">
+          You were invited to view <strong>${displayName}</strong>'s deck collection.
+          Would you like to save them to your friends list for easy access later?
+        </p>
+        <div style="margin-bottom:1rem">
+          <div style="font-size:12px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Nickname</div>
+          <input id="incomingNickname" class="finput" value="${displayName}" placeholder="Nickname for this friend" style="width:100%">
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-save" onclick="confirmAddFriend('${uid}', '${displayName.replace(/'/g,"\'")}')">✓ Save &amp; view their decks</button>
+          <button class="btn-cancel" onclick="skipAddFriend('${uid}', '${displayName.replace(/'/g,"\'")}')">Just view, don't save</button>
+        </div>
+      </div>`;
+    modal.id = 'incomingFriendModal';
+    document.body.appendChild(modal);
+
+    // Switch to friends tab
+    const friendsTab = document.querySelector('.tab:nth-child(5)');
+    if(friendsTab) friendsTab.click();
+  } else {
+    // Already a friend — just show their decks
+    switchTab('friends', document.querySelector('.tab:nth-child(5)'));
+    await loadFriendView(uid, existingFriend.nickname);
+  }
+}
+
+function confirmAddFriend(uid, displayName) {
+  const nickname = document.getElementById('incomingNickname')?.value.trim() || displayName;
+  const modal = document.getElementById('incomingFriendModal');
+  if(modal) modal.remove();
+
+  if(!window.savedFriends.find(f => f.uid === uid)) {
+    window.savedFriends.push({id: Date.now(), nickname, uid});
+    save();
+    render();
+  }
+
+  // Switch to friends tab and show their decks
+  const friendsTab = document.querySelector('.tab:nth-child(5)');
+  if(friendsTab) friendsTab.click();
+  setTimeout(() => loadFriendView(uid, nickname), 100);
+}
+
+function skipAddFriend(uid, displayName) {
+  const modal = document.getElementById('incomingFriendModal');
+  if(modal) modal.remove();
+  const friendsTab = document.querySelector('.tab:nth-child(5)');
+  if(friendsTab) friendsTab.click();
+  setTimeout(() => loadFriendView(uid, displayName), 100);
 }
 
 function extractUid(input){
